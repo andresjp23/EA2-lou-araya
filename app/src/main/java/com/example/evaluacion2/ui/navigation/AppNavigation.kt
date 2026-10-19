@@ -9,6 +9,13 @@ import com.example.evaluacion2.ui.screens.dashboard.DashboardScreen
 import com.example.evaluacion2.ui.screens.login.LoginScreen
 import com.example.evaluacion2.ui.screens.signin.SignInScreen
 import com.example.evaluacion2.ui.screens.signup.SignUpScreen
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.evaluacion2.data.local.AppDatabaseHelper
+import com.example.evaluacion2.data.repository.UserRepository
+import com.example.evaluacion2.viewmodel.SignUpViewModel
+import com.example.evaluacion2.viewmodel.SignUpViewModelFactory
 
 
 @Composable
@@ -16,6 +23,21 @@ fun AppNavigation() {
 
     val navController =
         rememberNavController()
+
+    val context =
+        LocalContext.current.applicationContext
+
+    val databaseHelper =
+        remember {
+            AppDatabaseHelper(context)
+        }
+
+    val userRepository =
+        remember {
+            UserRepository(
+                databaseHelper
+            )
+        }
 
 
     NavHost(
@@ -95,7 +117,19 @@ fun AppNavigation() {
             Routes.SIGN_UP
         ) {
 
+            val signUpViewModel:
+                    SignUpViewModel =
+                viewModel(
+                    factory =
+                        SignUpViewModelFactory(
+                            userRepository
+                        )
+                )
+
             SignUpScreen(
+
+                viewModel =
+                    signUpViewModel,
 
                 onRegisterSuccess = {
 

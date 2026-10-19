@@ -9,6 +9,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import com.example.evaluacion2.ui.navigation.AppNavigation
 import com.example.evaluacion2.ui.theme.Evaluacion2Theme
+import org.osmdroid.config.Configuration
 
 class MainActivity : ComponentActivity() {
 
@@ -17,6 +18,7 @@ class MainActivity : ComponentActivity() {
     ) {
 
         super.onCreate(savedInstanceState)
+        Configuration.getInstance().userAgentValue = packageName
 
         setContent {
 

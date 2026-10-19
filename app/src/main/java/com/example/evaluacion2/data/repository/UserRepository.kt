@@ -1,217 +1,68 @@
 package com.example.evaluacion2.data.repository
 
 import android.content.ContentValues
+import android.database.Cursor
+import android.database.sqlite.SQLiteDatabase
 import com.example.evaluacion2.data.local.AppDatabaseHelper
 import com.example.evaluacion2.domain.model.User
 
-class UserRepository(
-    private val databaseHelper: AppDatabaseHelper
-) {
-
-    fun registerUser(
-        user: User
-    ): Result<Long> {
-
-        return try {
-
-            val database =
-                databaseHelper.writableDatabase
-
-            val values =
-                ContentValues().apply {
-
-                    put(
-                        AppDatabaseHelper.COLUMN_NAME,
-                        user.name
-                    )
-
-                    put(
-                        AppDatabaseHelper.COLUMN_ALIAS,
-                        user.alias
-                    )
-
-                    put(
-                        AppDatabaseHelper.COLUMN_EMAIL,
-                        user.email
-                    )
-
-                    put(
-                        AppDatabaseHelper.COLUMN_PHONE,
-                        user.phone
-                    )
-
-                    put(
-                        AppDatabaseHelper.COLUMN_PASSWORD,
-                        user.password
-                    )
-
-                    put(
-                        AppDatabaseHelper.COLUMN_ROLE,
-                        user.role
-                    )
-                }
-
-            val result =
-                database.insert(
-                    AppDatabaseHelper.TABLE_USERS,
-                    null,
-                    values
-                )
-
-            if (result == -1L) {
-
-                Result.failure(
-                    Exception(
-                        "No fue posible registrar el usuario"
-                    )
-                )
-
-            } else {
-
-                Result.success(result)
+class UserRepository(private val databaseHelper: AppDatabaseHelper) {
+    fun registerUser(user: User): Result<Long> = runCatching {
+        val database = databaseHelper.writableDatabase
+        database.beginTransaction()
+        try {
+            val values = ContentValues().apply {
+                put(AppDatabaseHelper.COLUMN_NAME, user.name)
+                put(AppDatabaseHelper.COLUMN_ALIAS, user.alias)
+                put(AppDatabaseHelper.COLUMN_EMAIL, user.email)
+                put(AppDatabaseHelper.COLUMN_PHONE, user.phone)
+                put(AppDatabaseHelper.COLUMN_PASSWORD, user.password)
+                put(AppDatabaseHelper.COLUMN_ROLE, user.role)
+                put(AppDatabaseHelper.COLUMN_AVATAR_URI, user.avatarUri)
             }
+            val userId = database.insertOrThrow(AppDatabaseHelper.TABLE_USERS, null, values)
+            database.insertWithOnConflict(AppDatabaseHelper.TABLE_PREFERENCES, null, ContentValues().apply {
+                put(AppDatabaseHelper.COLUMN_USER_ID, userId)
+                put(AppDatabaseHelper.COLUMN_NOTIFICATIONS_ENABLED, 1)
+            }, SQLiteDatabase.CONFLICT_IGNORE)
+            database.setTransactionSuccessful()
+            userId
+        } finally { database.endTransaction() }
+    }
 
-        } catch (e: Exception) {
+    fun emailExists(email: String): Boolean = exists(AppDatabaseHelper.COLUMN_EMAIL, email.trim())
+    fun aliasExists(alias: String): Boolean = exists(AppDatabaseHelper.COLUMN_ALIAS, alias.trim())
 
-            Result.failure(e)
+    private fun exists(column: String, value: String): Boolean = databaseHelper.readableDatabase.query(
+        AppDatabaseHelper.TABLE_USERS, arrayOf(AppDatabaseHelper.COLUMN_ID), "$column = ? COLLATE NOCASE", arrayOf(value), null, null, null
+    ).use { it.moveToFirst() }
+
+    fun getUserById(userId: Int): User? = databaseHelper.readableDatabase.query(
+        AppDatabaseHelper.TABLE_USERS, null, "${AppDatabaseHelper.COLUMN_ID} = ?", arrayOf(userId.toString()), null, null, null
+    ).use { cursor -> if (cursor.moveToFirst()) cursor.toUser() else null }
+
+    fun login(email: String, password: String): User? = databaseHelper.readableDatabase.query(
+        AppDatabaseHelper.TABLE_USERS, null, "${AppDatabaseHelper.COLUMN_EMAIL} = ? COLLATE NOCASE AND ${AppDatabaseHelper.COLUMN_PASSWORD} = ?", arrayOf(email.trim(), password), null, null, null
+    ).use { cursor -> if (cursor.moveToFirst()) cursor.toUser() else null }
+
+    fun updateProfile(userId: Int, name: String, alias: String, phone: String): Result<Boolean> = runCatching {
+        val values = ContentValues().apply {
+            put(AppDatabaseHelper.COLUMN_NAME, name.trim())
+            put(AppDatabaseHelper.COLUMN_ALIAS, alias.trim())
+            put(AppDatabaseHelper.COLUMN_PHONE, phone.trim())
         }
+        val database = databaseHelper.writableDatabase
+        database.update(AppDatabaseHelper.TABLE_USERS, values, "${AppDatabaseHelper.COLUMN_ID} = ?", arrayOf(userId.toString())) > 0
     }
 
-
-    fun emailExists(
-        email: String
-    ): Boolean {
-
-        val database =
-            databaseHelper.readableDatabase
-
-        val cursor =
-            database.query(
-                AppDatabaseHelper.TABLE_USERS,
-                arrayOf(
-                    AppDatabaseHelper.COLUMN_ID
-                ),
-                "${AppDatabaseHelper.COLUMN_EMAIL} = ?",
-                arrayOf(email),
-                null,
-                null,
-                null
-            )
-
-        val exists =
-            cursor.moveToFirst()
-
-        cursor.close()
-
-        return exists
-    }
-
-
-    fun aliasExists(
-        alias: String
-    ): Boolean {
-
-        val database =
-            databaseHelper.readableDatabase
-
-        val cursor =
-            database.query(
-                AppDatabaseHelper.TABLE_USERS,
-                arrayOf(
-                    AppDatabaseHelper.COLUMN_ID
-                ),
-                "${AppDatabaseHelper.COLUMN_ALIAS} = ?",
-                arrayOf(alias),
-                null,
-                null,
-                null
-            )
-
-        val exists =
-            cursor.moveToFirst()
-
-        cursor.close()
-
-        return exists
-    }
-
-    fun login(
-        email: String,
-        password: String
-    ): User? {
-
-        val database =
-            databaseHelper.readableDatabase
-
-        val cursor =
-            database.query(
-                AppDatabaseHelper.TABLE_USERS,
-                null,
-                "${AppDatabaseHelper.COLUMN_EMAIL} = ? AND " +
-                        "${AppDatabaseHelper.COLUMN_PASSWORD} = ?",
-                arrayOf(
-                    email.trim(),
-                    password
-                ),
-                null,
-                null,
-                null
-            )
-
-        val user =
-            if (cursor.moveToFirst()) {
-
-                User(
-                    id = cursor.getInt(
-                        cursor.getColumnIndexOrThrow(
-                            AppDatabaseHelper.COLUMN_ID
-                        )
-                    ),
-
-                    name = cursor.getString(
-                        cursor.getColumnIndexOrThrow(
-                            AppDatabaseHelper.COLUMN_NAME
-                        )
-                    ),
-
-                    alias = cursor.getString(
-                        cursor.getColumnIndexOrThrow(
-                            AppDatabaseHelper.COLUMN_ALIAS
-                        )
-                    ),
-
-                    email = cursor.getString(
-                        cursor.getColumnIndexOrThrow(
-                            AppDatabaseHelper.COLUMN_EMAIL
-                        )
-                    ),
-
-                    phone = cursor.getString(
-                        cursor.getColumnIndexOrThrow(
-                            AppDatabaseHelper.COLUMN_PHONE
-                        )
-                    ),
-
-                    password = cursor.getString(
-                        cursor.getColumnIndexOrThrow(
-                            AppDatabaseHelper.COLUMN_PASSWORD
-                        )
-                    ),
-
-                    role = cursor.getString(
-                        cursor.getColumnIndexOrThrow(
-                            AppDatabaseHelper.COLUMN_ROLE
-                        )
-                    )
-                )
-
-            } else {
-
-                null
-            }
-
-        cursor.close()
-
-        return user
-    }
+    private fun Cursor.toUser() = User(
+        id = getInt(getColumnIndexOrThrow(AppDatabaseHelper.COLUMN_ID)),
+        name = getString(getColumnIndexOrThrow(AppDatabaseHelper.COLUMN_NAME)),
+        alias = getString(getColumnIndexOrThrow(AppDatabaseHelper.COLUMN_ALIAS)),
+        email = getString(getColumnIndexOrThrow(AppDatabaseHelper.COLUMN_EMAIL)),
+        phone = getString(getColumnIndexOrThrow(AppDatabaseHelper.COLUMN_PHONE)),
+        password = getString(getColumnIndexOrThrow(AppDatabaseHelper.COLUMN_PASSWORD)),
+        role = getString(getColumnIndexOrThrow(AppDatabaseHelper.COLUMN_ROLE)),
+        avatarUri = getString(getColumnIndexOrThrow(AppDatabaseHelper.COLUMN_AVATAR_URI))
+    )
 }

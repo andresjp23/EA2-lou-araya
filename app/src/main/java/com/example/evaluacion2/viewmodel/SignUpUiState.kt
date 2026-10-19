@@ -3,6 +3,7 @@ package com.example.evaluacion2.viewmodel
 data class SignUpUiState(
 
     val name: String = "",
+    val avatarUri: String? = null,
     val nameError: String? = null,
 
     val alias: String = "",

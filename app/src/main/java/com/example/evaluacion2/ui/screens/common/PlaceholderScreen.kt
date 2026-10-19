@@ -16,7 +16,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun PlaceholderScreen(
     title: String,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    onLogout: (() -> Unit)? = null
 ) {
 
     Column(
@@ -50,12 +51,14 @@ fun PlaceholderScreen(
                 )
         )
 
-        Button(
-            onClick =
-                onBackClick
-        ) {
-
+        Button(onClick = onBackClick) {
             Text("Volver")
+        }
+
+        onLogout?.let { logout ->
+            Button(onClick = logout, modifier = Modifier.padding(top = 8.dp)) {
+                Text("Cerrar sesión")
+            }
         }
     }
 }

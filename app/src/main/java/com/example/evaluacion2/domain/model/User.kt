@@ -7,5 +7,11 @@ data class User(
     val email: String,
     val phone: String,
     val password: String,
-    val role: String = "CLIENT"
-)
+    val role: String = ROLE_CLIENT,
+    val avatarUri: String? = null
+) {
+    companion object {
+        const val ROLE_CLIENT = "CLIENT"
+        const val ROLE_ADMIN = "ADMIN"
+    }
+}

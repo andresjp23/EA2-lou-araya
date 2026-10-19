@@ -93,14 +93,17 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(40.dp))
 
             Text(
-                text = "Arte textil que\ntransforma espacios\ny momentos.",
+                text = "Lou Araya Macramé\nArte en fibras que decora tus historias",
                 fontSize = 14.sp,
                 lineHeight = 20.sp,
                 color = Color.White,
                 textAlign = TextAlign.Center
             )
 
+            Text("Diseños artesanales únicos · Hogares, eventos y más · Ferias y showrooms · Diseños personalizados", color = Color.White, textAlign = TextAlign.Center, fontSize = 13.sp)
+
             Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(14.dp))
 
             // Botón principal
             Button(
@@ -115,7 +118,7 @@ fun LoginScreen(
                 )
             ) {
                 Text(
-                    text = "Iniciar sesión",
+                    text = "Comenzar",
                     fontWeight = FontWeight.Medium
                 )
             }
@@ -138,7 +141,7 @@ fun LoginScreen(
                 )
             ) {
                 Text(
-                    text = "Crear cuenta",
+                    text = "Ya tengo cuenta · Registro",
                     fontWeight = FontWeight.Medium
                 )
             }

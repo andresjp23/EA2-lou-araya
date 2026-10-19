@@ -15,84 +15,44 @@ import com.example.evaluacion2.ui.navigation.Routes
 
 @Composable
 fun ClientBottomBar(
-    currentRoute: String,
+    currentRoute: String?,
     onHomeClick: () -> Unit,
     onCatalogClick: () -> Unit,
     onMapClick: () -> Unit,
     onRequestsClick: () -> Unit,
     onProfileClick: () -> Unit
 ) {
-
     NavigationBar {
-
         NavigationBarItem(
-            selected = currentRoute == Routes.DASHBOARD,
+            selected = currentRoute == Routes.DASHBOARD || currentRoute == Routes.DASHBOARD_CLIENT,
             onClick = onHomeClick,
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Home,
-                    contentDescription = "Inicio"
-                )
-            },
-            label = {
-                Text("Inicio")
-            }
+            icon = { Icon(Icons.Default.Home, contentDescription = "Inicio") },
+            label = { Text("Inicio") }
         )
-
         NavigationBarItem(
             selected = currentRoute == Routes.CATALOG,
             onClick = onCatalogClick,
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Storefront,
-                    contentDescription = "Catálogo"
-                )
-            },
-            label = {
-                Text("Catálogo")
-            }
+            icon = { Icon(Icons.Default.Storefront, contentDescription = "Catálogo") },
+            label = { Text("Catálogo") }
         )
-
         NavigationBarItem(
             selected = currentRoute == Routes.MAP,
             onClick = onMapClick,
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Map,
-                    contentDescription = "Mapa"
-                )
-            },
-            label = {
-                Text("Mapa")
-            }
+            icon = { Icon(Icons.Default.Map, contentDescription = "Mapa") },
+            label = { Text("Mapa") }
         )
-
         NavigationBarItem(
-            selected = currentRoute == Routes.REQUESTS,
+            selected = currentRoute == Routes.REQUESTS || currentRoute == Routes.QUOTE ||
+                currentRoute?.startsWith("${Routes.QUOTE}?") == true,
             onClick = onRequestsClick,
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.ReceiptLong,
-                    contentDescription = "Solicitudes"
-                )
-            },
-            label = {
-                Text("Solicitudes")
-            }
+            icon = { Icon(Icons.Default.ReceiptLong, contentDescription = "Solicitudes") },
+            label = { Text("Solicitudes") }
         )
-
         NavigationBarItem(
             selected = currentRoute == Routes.PROFILE,
             onClick = onProfileClick,
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Perfil"
-                )
-            },
-            label = {
-                Text("Perfil")
-            }
+            icon = { Icon(Icons.Default.Person, contentDescription = "Perfil") },
+            label = { Text("Perfil") }
         )
     }
 }

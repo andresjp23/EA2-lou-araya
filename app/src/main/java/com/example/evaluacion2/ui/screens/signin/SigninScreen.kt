@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +21,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -28,9 +38,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.evaluacion2.R
 import com.example.evaluacion2.viewmodel.SignInViewModel
+import com.example.evaluacion2.domain.model.User
 
 @Composable
 fun SignInScreen(
@@ -39,17 +51,16 @@ fun SignInScreen(
     onBackClick: () -> Unit
 ) {
 
-    val uiState =
-        viewModel.uiState
+    val uiState = viewModel.uiState
+    var selectedRole by remember { mutableStateOf(User.ROLE_CLIENT) }
+    var showPassword by remember { mutableStateOf(false) }
 
 
     LaunchedEffect(
         uiState.loginSuccess
     ) {
 
-        if (
-            uiState.loginSuccess
-        ) {
+        if (uiState.loginSuccess) {
 
             val role =
                 uiState.userRole ?: "CLIENT"
@@ -122,15 +133,12 @@ fun SignInScreen(
         )
 
 
-        Text(
-            text =
-                "Iniciar sesión",
-
-            style =
-                MaterialTheme
-                    .typography
-                    .headlineLarge
-        )
+        Text("Bienvenido de nuevo", style = MaterialTheme.typography.headlineLarge)
+        Text("Ingresa a tu cuenta", style = MaterialTheme.typography.bodyMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected = selectedRole == "CLIENT", onClick = { selectedRole = User.ROLE_CLIENT }, label = { Text("Cliente") })
+            FilterChip(selected = selectedRole == "ADMIN", onClick = { selectedRole = User.ROLE_ADMIN }, label = { Text("Administrador") })
+        }
 
 
         Spacer(
@@ -208,8 +216,7 @@ fun SignInScreen(
                 Text("Contraseña")
             },
 
-            visualTransformation =
-                PasswordVisualTransformation(),
+            visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
 
             keyboardOptions =
                 KeyboardOptions(
@@ -226,29 +233,22 @@ fun SignInScreen(
                 uiState.passwordError != null,
 
             trailingIcon = {
-
-                if (
-                    uiState.passwordError != null
-                ) {
-
-                    Icon(
-                        imageVector =
-                            Icons.Default.Error,
-
-                        contentDescription =
-                            "Error"
-                    )
+                Row {
+                    IconButton(onClick = { showPassword = !showPassword }) { Icon(if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = if (showPassword) "Ocultar contraseña" else "Mostrar contraseña") }
+                    if (uiState.passwordError != null) Icon(Icons.Default.Error, contentDescription = "Error")
                 }
             },
 
             supportingText = {
-
-                uiState.passwordError?.let {
-                    Text(it)
-                }
+                uiState.passwordError?.let { Text(it) }
             }
         )
 
+
+        TextButton(onClick = { }, modifier = Modifier.fillMaxWidth()) { Text("¿Olvidaste tu contraseña?") }
+        Text("o continúa con", style = MaterialTheme.typography.bodySmall)
+        OutlinedButton(onClick = { }, modifier = Modifier.fillMaxWidth()) { Text("Google (demo local no disponible)") }
+        TextButton(onClick = onBackClick, modifier = Modifier.fillMaxWidth()) { Text("← Regresar") }
 
         uiState.generalError?.let {
 
@@ -276,7 +276,7 @@ fun SignInScreen(
 
         Button(
             onClick = {
-                viewModel.login()
+                viewModel.loginAs(selectedRole)
             },
 
             enabled =

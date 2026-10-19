@@ -22,8 +22,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.layout.Row
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.net.Uri
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -42,6 +51,9 @@ fun SignUpScreen(
 ) {
 
     val uiState = viewModel.uiState
+    var avatar by remember { mutableStateOf("🌿") }
+    var avatarUri by remember { mutableStateOf<String?>(null) }
+    val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? -> avatarUri = uri?.toString(); viewModel.onAvatarUriChange(uri?.toString()) }
 
     // Cuando SQLite confirma el registro,
     // recién entonces navegamos al Dashboard.
@@ -139,7 +151,7 @@ fun SignUpScreen(
 
         Text(
             text =
-                "Únete al mundo de Lou Araya Macramé",
+                "Únete a Lou Araya Macramé y sé parte de nuestra comunidad",
 
             style =
                 MaterialTheme
@@ -257,6 +269,15 @@ fun SignUpScreen(
             }
         )
 
+
+        Spacer(modifier = Modifier.height(12.dp))
+        Text("Selecciona un avatar", style = MaterialTheme.typography.titleSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("🌿", "🌸", "🧶", "✨").forEach { option ->
+                FilterChip(selected = avatar == option, onClick = { avatar = option; avatarUri = null; viewModel.onAvatarUriChange(null) }, label = { Text(option) })
+            }
+            TextButton(onClick = { avatarPicker.launch("image/*") }) { Text(if (avatarUri == null) "+ Agregar otro" else "Avatar personalizado seleccionado") }
+        }
 
         Spacer(
             modifier =
@@ -586,5 +607,7 @@ fun SignUpScreen(
                 )
             }
         }
+        Spacer(Modifier.height(10.dp))
+        Text("Al registrarte aceptas nuestros Términos y Condiciones", style = MaterialTheme.typography.bodySmall)
     }
 }

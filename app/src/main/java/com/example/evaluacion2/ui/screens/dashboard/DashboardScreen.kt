@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -20,9 +21,14 @@ import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -30,505 +36,120 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.evaluacion2.domain.model.Product
 import com.example.evaluacion2.ui.components.ClientBottomBar
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import com.example.evaluacion2.ui.components.AdminBottomBar
 import com.example.evaluacion2.ui.navigation.Routes
 
-
-data class QuickAccessItem(
-    val title: String,
-    val icon: ImageVector,
-    val onClick: () -> Unit
-)
-
+data class QuickAccessItem(val title: String, val icon: ImageVector, val onClick: () -> Unit)
 
 @Composable
 fun DashboardScreen(
+    userName: String,
+    favoriteProducts: List<Product>,
+    onFavoriteProductClick: (Int) -> Unit,
+    onFavoritesClick: () -> Unit,
     onCatalogClick: () -> Unit,
     onMapClick: () -> Unit,
     onQrClick: () -> Unit,
     onRequestsClick: () -> Unit,
     onProfileClick: () -> Unit,
-    onNotificationsClick: () -> Unit
+    onNotificationsClick: () -> Unit,
+    onLogout: () -> Unit,
+    isAdmin: Boolean = false
 ) {
-
-    Scaffold(
-
-        bottomBar = {
-
-            ClientBottomBar(
-                currentRoute = Routes.DASHBOARD,
-                onHomeClick = {},
-                onCatalogClick = onCatalogClick,
-                onMapClick = onMapClick,
-                onRequestsClick = onRequestsClick,
-                onProfileClick = onProfileClick
-            )
-        }
-
-    ) { innerPadding ->
-
+    var search by remember { mutableStateOf("") }
+    Scaffold(bottomBar = {
+        if (isAdmin) AdminBottomBar(Routes.DASHBOARD_ADMIN, {}, onCatalogClick, onFavoritesClick, onRequestsClick, onProfileClick)
+        else ClientBottomBar(Routes.DASHBOARD_CLIENT, {}, onCatalogClick, onMapClick, onRequestsClick, onProfileClick)
+    }) { innerPadding ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-
-            contentPadding = PaddingValues(
-                horizontal = 20.dp,
-                vertical = 16.dp
-            ),
-
-            verticalArrangement =
-                Arrangement.spacedBy(20.dp)
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-
-
-            // =================================================
-            // ENCABEZADO
-            // =================================================
-
             item {
-
-                Row(
-                    modifier =
-                        Modifier.fillMaxWidth(),
-
-                    verticalAlignment =
-                        Alignment.CenterVertically
-                ) {
-
-                    Card(
-                        shape = CircleShape,
-                        colors = CardDefaults.cardColors(
-                            containerColor =
-                                MaterialTheme
-                                    .colorScheme
-                                    .primaryContainer
-                        )
-                    ) {
-
-                        Icon(
-                            imageVector =
-                                Icons.Default.Person,
-
-                            contentDescription =
-                                "Perfil",
-
-                            modifier =
-                                Modifier.padding(12.dp)
-                        )
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Card(shape = CircleShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                        Icon(Icons.Default.Person, contentDescription = "Perfil", modifier = Modifier.padding(12.dp))
                     }
-
-
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(start = 12.dp)
-                    ) {
-
-                        Text(
-                            text = "Hola",
-                            style =
-                                MaterialTheme
-                                    .typography
-                                    .bodyMedium
-                        )
-
-                        Text(
-                            text = "Bienvenida a Lou Araya",
-                            style =
-                                MaterialTheme
-                                    .typography
-                                    .titleLarge,
-
-                            fontWeight =
-                                FontWeight.Bold
-                        )
+                    Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                        Text("Hola, $userName", style = MaterialTheme.typography.bodyMedium)
+                        Text("Qué lindo tenerte aquí", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     }
-
-
-                    IconButton(
-                        onClick =
-                            onNotificationsClick
-                    ) {
-
-                        Icon(
-                            imageVector =
-                                Icons.Default.Notifications,
-
-                            contentDescription =
-                                "Notificaciones"
-                        )
+                    IconButton(onClick = onNotificationsClick) { Icon(Icons.Default.Notifications, contentDescription = "Notificaciones") }
+                }
+            }
+            item { OutlinedTextField(search, { search = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Buscar productos, ferias, inspiración...") }, singleLine = true, trailingIcon = { IconButton(onClick = onCatalogClick) { Icon(Icons.Default.Search, contentDescription = "Buscar en el catálogo") } }) }
+            item {
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                    Column(Modifier.padding(20.dp)) {
+                        Text("Colección destacada", style = MaterialTheme.typography.labelLarge)
+                        Spacer(Modifier.height(6.dp))
+                        Text("Bodas de Ensueño", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                        Text("Diseños únicos para tu gran día", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp, bottom = 14.dp))
+                        Button(onClick = onCatalogClick) { Text("Ver colección") }
                     }
                 }
             }
-
-
-            // =================================================
-            // COLECCIÓN DESTACADA
-            // =================================================
-
             item {
-
-                Card(
-                    modifier =
-                        Modifier.fillMaxWidth(),
-
-                    shape =
-                        RoundedCornerShape(20.dp),
-
-                    colors =
-                        CardDefaults.cardColors(
-                            containerColor =
-                                MaterialTheme
-                                    .colorScheme
-                                    .primaryContainer
-                        )
-                ) {
-
-                    Column(
-                        modifier =
-                            Modifier.padding(20.dp)
-                    ) {
-
-                        Text(
-                            text =
-                                "Colección destacada",
-
-                            style =
-                                MaterialTheme
-                                    .typography
-                                    .labelLarge
-                        )
-
-                        Spacer(
-                            modifier =
-                                Modifier.height(6.dp)
-                        )
-
-                        Text(
-                            text =
-                                "Bodas de Ensueño",
-
-                            style =
-                                MaterialTheme
-                                    .typography
-                                    .headlineSmall,
-
-                            fontWeight =
-                                FontWeight.Bold
-                        )
-
-                        Text(
-                            text =
-                                "Diseños únicos para crear espacios memorables.",
-
-                            style =
-                                MaterialTheme
-                                    .typography
-                                    .bodyMedium,
-
-                            modifier =
-                                Modifier.padding(
-                                    top = 6.dp,
-                                    bottom = 14.dp
-                                )
-                        )
-
-                        Button(
-                            onClick =
-                                onCatalogClick
-                        ) {
-
-                            Text("Ver colección")
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Accesos rápidos", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    TextButton(onClick = onFavoritesClick) { Text("Favoritos") }
+                }
+            }
+            item {
+                val shortcuts = listOf(
+                    QuickAccessItem("Catálogo", Icons.Default.Storefront, onCatalogClick),
+                    QuickAccessItem("Favoritos", Icons.Default.Favorite, onFavoritesClick),
+                    QuickAccessItem("Mapa", Icons.Default.Map, onMapClick),
+                    QuickAccessItem("Escanear QR", Icons.Default.QrCodeScanner, onQrClick),
+                    QuickAccessItem("Solicitudes", Icons.AutoMirrored.Filled.ReceiptLong, onRequestsClick),
+                    QuickAccessItem("Perfil", Icons.Default.Person, onProfileClick)
+                )
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(shortcuts) { QuickAccessCard(it) }
+                }
+            }
+            item { Text(if (isAdmin) "Resumen del catálogo" else "Productos destacados", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+            if (favoriteProducts.isEmpty()) {
+                item { Text(if (isAdmin) "Gestiona productos, colecciones y solicitudes pendientes desde los accesos." else "Aún no has agregado productos a favoritos.", style = MaterialTheme.typography.bodyMedium) }
+            } else {
+                item {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        items(favoriteProducts.take(4), key = { "home-favorite-${it.id}" }) { product ->
+                            Card(onClick = { onFavoriteProductClick(product.id) }, modifier = Modifier.width(220.dp), shape = RoundedCornerShape(16.dp)) {
+                                Column(Modifier.padding(16.dp)) {
+                                    Icon(Icons.Default.Favorite, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    Text(product.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                    Text(product.category, style = MaterialTheme.typography.bodySmall)
+                                    Text("$${product.price}", style = MaterialTheme.typography.titleSmall)
+                                }
+                            }
                         }
                     }
                 }
             }
-
-
-            // =================================================
-            // ACCESOS RÁPIDOS
-            // =================================================
-
-            item {
-
-                Text(
-                    text = "Accesos rápidos",
-                    style =
-                        MaterialTheme
-                            .typography
-                            .titleLarge,
-
-                    fontWeight =
-                        FontWeight.Bold
-                )
-            }
-
-
-            item {
-
-                val accesos =
-                    listOf(
-
-                        QuickAccessItem(
-                            title = "Catálogo",
-                            icon =
-                                Icons.Default.Storefront,
-                            onClick =
-                                onCatalogClick
-                        ),
-
-                        QuickAccessItem(
-                            title = "Mapa",
-                            icon =
-                                Icons.Default.Map,
-                            onClick =
-                                onMapClick
-                        ),
-
-                        QuickAccessItem(
-                            title = "Escanear QR",
-                            icon =
-                                Icons.Default.QrCodeScanner,
-                            onClick =
-                                onQrClick
-                        ),
-
-                        QuickAccessItem(
-                            title = "Solicitudes",
-                            icon =
-                                Icons.Default.ReceiptLong,
-                            onClick =
-                                onRequestsClick
-                        ),
-
-                        QuickAccessItem(
-                            title = "Perfil",
-                            icon =
-                                Icons.Default.Person,
-                            onClick =
-                                onProfileClick
-                        )
-                    )
-
-
-                LazyRow(
-                    horizontalArrangement =
-                        Arrangement.spacedBy(12.dp)
-                ) {
-
-                    items(accesos) { item ->
-
-                        QuickAccessCard(
-                            item = item
-                        )
-                    }
-                }
-            }
-
-
-            // =================================================
-            // PRODUCTOS DESTACADOS
-            // =================================================
-
-            item {
-
-                Text(
-                    text =
-                        "Productos destacados",
-
-                    style =
-                        MaterialTheme
-                            .typography
-                            .titleLarge,
-
-                    fontWeight =
-                        FontWeight.Bold
-                )
-            }
-
-
-            item {
-
-                Row(
-                    modifier =
-                        Modifier.fillMaxWidth(),
-
-                    horizontalArrangement =
-                        Arrangement.spacedBy(12.dp)
-                ) {
-
-                    ProductPreviewCard(
-                        name =
-                            "Tapiz mural",
-
-                        category =
-                            "Decoración",
-
-                        price =
-                            "$65.000",
-
-                        modifier =
-                            Modifier.weight(1f)
-                    )
-
-
-                    ProductPreviewCard(
-                        name =
-                            "Arco de ceremonia",
-
-                        category =
-                            "Matrimonios",
-
-                        price =
-                            "$120.000",
-
-                        modifier =
-                            Modifier.weight(1f)
-                    )
-                }
-            }
+            item { TextButton(onClick = onLogout) { Text("Cerrar sesión") } }
         }
     }
 }
 
-
 @Composable
-fun QuickAccessCard(
-    item: QuickAccessItem
-) {
-
-    Card(
-        onClick = item.onClick,
-
-        shape =
-            RoundedCornerShape(16.dp),
-
-        colors =
-            CardDefaults.cardColors(
-                containerColor =
-                    MaterialTheme
-                        .colorScheme
-                        .surfaceVariant
-            )
-    ) {
-
-        Column(
-            modifier =
-                Modifier.padding(18.dp),
-
-            horizontalAlignment =
-                Alignment.CenterHorizontally
-        ) {
-
-            Icon(
-                imageVector =
-                    item.icon,
-
-                contentDescription =
-                    item.title
-            )
-
-            Spacer(
-                modifier =
-                    Modifier.height(8.dp)
-            )
-
-            Text(
-                text =
-                    item.title,
-
-                style =
-                    MaterialTheme
-                        .typography
-                        .labelLarge
-            )
-        }
-    }
-}
-
-
-@Composable
-fun ProductPreviewCard(
-    name: String,
-    category: String,
-    price: String,
-    modifier: Modifier = Modifier
-) {
-
-    Card(
-        modifier = modifier,
-
-        shape =
-            RoundedCornerShape(18.dp)
-    ) {
-
-        Column(
-            modifier =
-                Modifier.padding(16.dp)
-        ) {
-
-            Icon(
-                imageVector =
-                    Icons.Default.Favorite,
-
-                contentDescription =
-                    null,
-
-                tint =
-                    MaterialTheme
-                        .colorScheme
-                        .primary
-            )
-
-            Spacer(
-                modifier =
-                    Modifier.height(22.dp)
-            )
-
-            Text(
-                text = name,
-
-                style =
-                    MaterialTheme
-                        .typography
-                        .titleMedium,
-
-                fontWeight =
-                    FontWeight.Bold
-            )
-
-            Text(
-                text = category,
-
-                style =
-                    MaterialTheme
-                        .typography
-                        .bodySmall
-            )
-
-            Spacer(
-                modifier =
-                    Modifier.height(8.dp)
-            )
-
-            Text(
-                text = price,
-
-                style =
-                    MaterialTheme
-                        .typography
-                        .titleSmall,
-
-                fontWeight =
-                    FontWeight.SemiBold
-            )
+fun QuickAccessCard(item: QuickAccessItem) {
+    Card(onClick = item.onClick, shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(item.icon, contentDescription = item.title)
+            Spacer(Modifier.height(8.dp))
+            Text(item.title, style = MaterialTheme.typography.labelLarge)
         }
     }
 }

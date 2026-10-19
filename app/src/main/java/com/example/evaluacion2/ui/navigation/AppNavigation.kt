@@ -16,6 +16,8 @@ import com.example.evaluacion2.data.local.AppDatabaseHelper
 import com.example.evaluacion2.data.repository.UserRepository
 import com.example.evaluacion2.viewmodel.SignUpViewModel
 import com.example.evaluacion2.viewmodel.SignUpViewModelFactory
+import com.example.evaluacion2.viewmodel.SignInViewModel
+import com.example.evaluacion2.viewmodel.SignInViewModelFactory
 
 
 @Composable
@@ -84,18 +86,51 @@ fun AppNavigation() {
             Routes.SIGN_IN
         ) {
 
+            val signInViewModel:
+                    SignInViewModel =
+                viewModel(
+                    factory =
+                        SignInViewModelFactory(
+                            userRepository
+                        )
+                )
+
+
             SignInScreen(
 
-                onLoginSuccess = {
+                viewModel =
+                    signInViewModel,
 
-                    navController.navigate(
-                        Routes.DASHBOARD
+                onLoginSuccess = { role ->
+
+                    if (
+                        role == "ADMIN"
                     ) {
 
-                        popUpTo(
-                            Routes.WELCOME
+                        // Por ahora, hasta construir
+                        // el Dashboard Administrador.
+                        navController.navigate(
+                            Routes.DASHBOARD
                         ) {
-                            inclusive = true
+
+                            popUpTo(
+                                Routes.WELCOME
+                            ) {
+                                inclusive = true
+                            }
+                        }
+
+                    } else {
+
+                        navController.navigate(
+                            Routes.DASHBOARD
+                        ) {
+
+                            popUpTo(
+                                Routes.WELCOME
+                            ) {
+                                inclusive = true
+                            }
                         }
                     }
                 },

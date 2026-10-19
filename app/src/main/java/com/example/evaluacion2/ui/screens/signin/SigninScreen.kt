@@ -1,132 +1,308 @@
-
 package com.example.evaluacion2.ui.screens.signin
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.Image
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.dp
 import com.example.evaluacion2.R
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-
+import com.example.evaluacion2.viewmodel.SignInViewModel
 
 @Composable
 fun SignInScreen(
-    onLoginSuccess: () -> Unit,
+    viewModel: SignInViewModel,
+    onLoginSuccess: (String) -> Unit,
     onBackClick: () -> Unit
 ) {
-    var correo by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf(false) }
+
+    val uiState =
+        viewModel.uiState
+
+
+    LaunchedEffect(
+        uiState.loginSuccess
+    ) {
+
+        if (
+            uiState.loginSuccess
+        ) {
+
+            val role =
+                uiState.userRole ?: "CLIENT"
+
+            viewModel.loginHandled()
+
+            onLoginSuccess(role)
+        }
+    }
+
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+
+        verticalArrangement =
+            Arrangement.Center,
+
+        horizontalAlignment =
+            Alignment.CenterHorizontally
     ) {
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 16.dp)
+                .padding(
+                    bottom = 16.dp
+                )
         ) {
+
             TextButton(
-                onClick = onBackClick,
-                modifier = Modifier.align(Alignment.CenterStart)
+                onClick =
+                    onBackClick,
+
+                modifier =
+                    Modifier.align(
+                        Alignment.CenterStart
+                    )
             ) {
+
                 Text("← Volver")
             }
         }
+
+
         Image(
-            painter = painterResource(
-                id = R.drawable.logo_lou_araya_terracotta
-            ),
-            contentDescription = "Logo Lou Araya Macramé",
-            contentScale = ContentScale.Fit,
+            painter =
+                painterResource(
+                    id =
+                        R.drawable
+                            .logo_lou_araya_terracotta
+                ),
+
+            contentDescription =
+                "Logo Lou Araya Macramé",
+
+            contentScale =
+                ContentScale.Fit,
+
             modifier = Modifier
                 .fillMaxWidth()
                 .height(110.dp)
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+
+        Spacer(
+            modifier =
+                Modifier.height(24.dp)
+        )
+
+
         Text(
-            text = "Iniciar sesión",
-            style = MaterialTheme.typography.headlineLarge
+            text =
+                "Iniciar sesión",
+
+            style =
+                MaterialTheme
+                    .typography
+                    .headlineLarge
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+
+        Spacer(
+            modifier =
+                Modifier.height(24.dp)
+        )
+
 
         OutlinedTextField(
-            value = correo,
-            onValueChange = {
-                correo = it
-                error = false
+            value =
+                uiState.email,
+
+            onValueChange =
+                viewModel::onEmailChange,
+
+            label = {
+                Text(
+                    "Correo electrónico"
+                )
             },
-            label = { Text("Correo electrónico") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+
+            modifier =
+                Modifier.fillMaxWidth(),
+
+            singleLine = true,
+
+            keyboardOptions =
+                KeyboardOptions(
+                    keyboardType =
+                        KeyboardType.Email
+                ),
+
+            isError =
+                uiState.emailError != null,
+
+            trailingIcon = {
+
+                if (
+                    uiState.emailError != null
+                ) {
+
+                    Icon(
+                        imageVector =
+                            Icons.Default.Error,
+
+                        contentDescription =
+                            "Error"
+                    )
+                }
+            },
+
+            supportingText = {
+
+                uiState.emailError?.let {
+                    Text(it)
+                }
+            }
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+
+        Spacer(
+            modifier =
+                Modifier.height(16.dp)
+        )
+
 
         OutlinedTextField(
-            value = password,
-            onValueChange = {
-                password = it
-                error = false
+            value =
+                uiState.password,
+
+            onValueChange =
+                viewModel::onPasswordChange,
+
+            label = {
+                Text("Contraseña")
             },
-            label = { Text("Contraseña") },
-            visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+
+            visualTransformation =
+                PasswordVisualTransformation(),
+
+            keyboardOptions =
+                KeyboardOptions(
+                    keyboardType =
+                        KeyboardType.Password
+                ),
+
+            modifier =
+                Modifier.fillMaxWidth(),
+
+            singleLine = true,
+
+            isError =
+                uiState.passwordError != null,
+
+            trailingIcon = {
+
+                if (
+                    uiState.passwordError != null
+                ) {
+
+                    Icon(
+                        imageVector =
+                            Icons.Default.Error,
+
+                        contentDescription =
+                            "Error"
+                    )
+                }
+            },
+
+            supportingText = {
+
+                uiState.passwordError?.let {
+                    Text(it)
+                }
+            }
         )
 
-        if (error) {
-            Spacer(modifier = Modifier.height(8.dp))
+
+        uiState.generalError?.let {
+
+            Spacer(
+                modifier =
+                    Modifier.height(8.dp)
+            )
 
             Text(
-                text = "Correo o contraseña incorrectos",
-                color = MaterialTheme.colorScheme.error
+                text = it,
+
+                color =
+                    MaterialTheme
+                        .colorScheme
+                        .error
             )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+
+        Spacer(
+            modifier =
+                Modifier.height(24.dp)
+        )
+
 
         Button(
             onClick = {
-                if (
-                    correo == "lou@araya.cl" &&
-                    password == "1234"
-                ) {
-                    error = false
-                    onLoginSuccess()
-                } else {
-                    error = true
-                }
+                viewModel.login()
             },
+
+            enabled =
+                !uiState.isLoading,
+
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp)
         ) {
-            Text("Ingresar")
+
+            if (
+                uiState.isLoading
+            ) {
+
+                CircularProgressIndicator(
+                    modifier =
+                        Modifier.size(22.dp),
+
+                    strokeWidth =
+                        2.dp
+                )
+
+            } else {
+
+                Text("Ingresar")
+            }
         }
     }
 }

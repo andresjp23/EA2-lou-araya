@@ -134,4 +134,84 @@ class UserRepository(
 
         return exists
     }
+
+    fun login(
+        email: String,
+        password: String
+    ): User? {
+
+        val database =
+            databaseHelper.readableDatabase
+
+        val cursor =
+            database.query(
+                AppDatabaseHelper.TABLE_USERS,
+                null,
+                "${AppDatabaseHelper.COLUMN_EMAIL} = ? AND " +
+                        "${AppDatabaseHelper.COLUMN_PASSWORD} = ?",
+                arrayOf(
+                    email.trim(),
+                    password
+                ),
+                null,
+                null,
+                null
+            )
+
+        val user =
+            if (cursor.moveToFirst()) {
+
+                User(
+                    id = cursor.getInt(
+                        cursor.getColumnIndexOrThrow(
+                            AppDatabaseHelper.COLUMN_ID
+                        )
+                    ),
+
+                    name = cursor.getString(
+                        cursor.getColumnIndexOrThrow(
+                            AppDatabaseHelper.COLUMN_NAME
+                        )
+                    ),
+
+                    alias = cursor.getString(
+                        cursor.getColumnIndexOrThrow(
+                            AppDatabaseHelper.COLUMN_ALIAS
+                        )
+                    ),
+
+                    email = cursor.getString(
+                        cursor.getColumnIndexOrThrow(
+                            AppDatabaseHelper.COLUMN_EMAIL
+                        )
+                    ),
+
+                    phone = cursor.getString(
+                        cursor.getColumnIndexOrThrow(
+                            AppDatabaseHelper.COLUMN_PHONE
+                        )
+                    ),
+
+                    password = cursor.getString(
+                        cursor.getColumnIndexOrThrow(
+                            AppDatabaseHelper.COLUMN_PASSWORD
+                        )
+                    ),
+
+                    role = cursor.getString(
+                        cursor.getColumnIndexOrThrow(
+                            AppDatabaseHelper.COLUMN_ROLE
+                        )
+                    )
+                )
+
+            } else {
+
+                null
+            }
+
+        cursor.close()
+
+        return user
+    }
 }

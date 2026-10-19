@@ -75,6 +75,7 @@ fun EventMapScreen(
     currentRoute: String? = null,
     onHome: () -> Unit = {},
     onCatalog: () -> Unit = {},
+    onMap: () -> Unit = {},
     onRequests: () -> Unit = {},
     onProfile: () -> Unit = {}
 ) {
@@ -141,7 +142,7 @@ fun EventMapScreen(
             )
         },
         bottomBar = {
-            ClientBottomBar(currentRoute ?: Routes.MAP, onHome, onCatalog, {}, onRequests, onProfile)
+            ClientBottomBar(currentRoute ?: Routes.MAP, onHome, onCatalog, onMap, onRequests, onProfile)
         }
     ) { padding ->
         Box(
@@ -221,6 +222,7 @@ private fun rememberEventMapView(): MapView {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val mapView = remember {
+        // MainActivity configures osmdroid once with the app's stable user agent.
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)

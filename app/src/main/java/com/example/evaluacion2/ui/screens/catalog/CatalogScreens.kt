@@ -186,7 +186,7 @@ fun RequestsScreen(vm: RequestsViewModel, isAdmin: Boolean, onBack: () -> Unit, 
     val requests by vm.requests.collectAsState()
     Scaffold(
         topBar = { TopAppBar(title = { Text(if (isAdmin) "Gestión de Solicitudes" else "Mis Solicitudes") }, navigationIcon = { TextButton(onClick = onBack) { Text("Volver") } }) },
-        bottomBar = { if (isAdmin) AdminBottomBar(currentRoute, onHome, {}, {}, onNotifications, onProfile) else ClientBottomBar(currentRoute ?: Routes.REQUESTS, onHome, onCatalog, onMap, {}, onProfile) },
+        bottomBar = { if (isAdmin) AdminBottomBar(currentRoute, onHome, {}, {}, onNotifications, onProfile) else ClientBottomBar(currentRoute ?: Routes.REQUESTS, onHome, onCatalog, onMap, onBack, onProfile) },
         floatingActionButton = { if (!isAdmin) FloatingActionButton(onClick = onQuote) { Text("+") } }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {

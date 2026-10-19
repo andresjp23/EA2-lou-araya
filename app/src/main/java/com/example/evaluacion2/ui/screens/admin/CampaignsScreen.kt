@@ -42,7 +42,7 @@ import com.example.evaluacion2.ui.components.ClientBottomBar
 import com.example.evaluacion2.ui.navigation.Routes
 
 @Composable
-fun CampaignsScreen(repository: CampaignRepository, isAdmin: Boolean, onBack: () -> Unit, currentRoute: String? = null, onHome: () -> Unit = {}, onProducts: () -> Unit = {}, onRequests: () -> Unit = {}, onProfile: () -> Unit = {}) {
+fun CampaignsScreen(repository: CampaignRepository, isAdmin: Boolean, onBack: () -> Unit, currentRoute: String? = null, onHome: () -> Unit = {}, onProducts: () -> Unit = {}, onRequests: () -> Unit = {}, onProfile: () -> Unit = {}, onMap: () -> Unit = {}) {
     val vm: CampaignsViewModel = viewModel(key = "campaigns-$isAdmin") { CampaignsViewModel(repository) }
     val campaigns by vm.campaigns.collectAsState()
     var editing by remember { mutableStateOf<Campaign?>(null) }
@@ -51,7 +51,7 @@ fun CampaignsScreen(repository: CampaignRepository, isAdmin: Boolean, onBack: ()
 
     Scaffold(bottomBar = {
         if (isAdmin) AdminBottomBar(currentRoute, onHome, onProducts, {}, onRequests, onProfile)
-        else ClientBottomBar(currentRoute ?: Routes.CAMPAIGNS, onHome, onProducts, {}, onRequests, onProfile)
+        else ClientBottomBar(currentRoute ?: Routes.CAMPAIGNS, onHome, onProducts, onMap, onRequests, onProfile)
     }) { inset ->
         Column(Modifier.fillMaxSize().padding(inset).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

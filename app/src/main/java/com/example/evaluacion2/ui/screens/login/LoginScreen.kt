@@ -118,7 +118,7 @@ fun LoginScreen(
                 )
             ) {
                 Text(
-                    text = "Comenzar",
+                    text = "Iniciar Sesión",
                     fontWeight = FontWeight.Medium
                 )
             }
@@ -141,7 +141,7 @@ fun LoginScreen(
                 )
             ) {
                 Text(
-                    text = "Ya tengo cuenta · Registro",
+                    text = "No tengo cuenta · Registro",
                     fontWeight = FontWeight.Medium
                 )
             }

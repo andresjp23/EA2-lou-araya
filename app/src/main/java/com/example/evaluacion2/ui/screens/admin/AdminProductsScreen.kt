@@ -6,14 +6,14 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.MediaStore
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -54,7 +54,15 @@ import com.example.evaluacion2.ui.components.AdminBottomBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AdminProductsScreen(repository: ProductRepository, onBack: () -> Unit, currentRoute: String? = null, onHome: () -> Unit = {}, onCampaigns: () -> Unit = {}, onRequests: () -> Unit = {}, onProfile: () -> Unit = {}) {
+fun AdminProductsScreen(
+    repository: ProductRepository,
+    onBack: () -> Unit,
+    currentRoute: String? = null,
+    onHome: () -> Unit = {},
+    onCampaigns: () -> Unit = {},
+    onRequests: () -> Unit = {},
+    onProfile: () -> Unit = {}
+) {
     var products by remember { mutableStateOf(repository.getProducts()) }
     var query by remember { mutableStateOf("") }
     var filter by remember { mutableStateOf("Todos") }
@@ -65,33 +73,36 @@ fun AdminProductsScreen(repository: ProductRepository, onBack: () -> Unit, curre
     var pendingImage by remember { mutableStateOf<String?>(null) }
     var pickImage by remember { mutableStateOf(false) }
     fun refresh() { products = repository.getProducts() }
-    Scaffold(topBar = { TopAppBar(title = { Text("Gestión de productos") }, navigationIcon = { TextButton(onClick = onBack) { Text("Volver") } }) }, bottomBar = { AdminBottomBar(currentRoute, onHome, {}, onCampaigns, onRequests, onProfile) }, floatingActionButton = { Button(onClick = { editing = null; creating = true }) { Text("+ Crear nuevo producto") } }) { padding ->
+
+    Scaffold(
+        topBar = { TopAppBar(title = { Text("Gestión de productos") }, navigationIcon = { TextButton(onClick = onBack) { Text("Volver") } }) },
+        bottomBar = { AdminBottomBar(currentRoute, onHome, {}, onCampaigns, onRequests, onProfile) },
+        floatingActionButton = { Button(onClick = { editing = null; creating = true }) { Text("+ Crear nuevo producto") } }
+    ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-        OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp), label = { Text("Buscar productos...") }, singleLine = true)
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Todos", "Activos", "Inactivos").forEach { value -> FilterChip(selected = filter == value, onClick = { filter = value }, label = { Text(value) }) }
-        }
-        LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(visibleProducts, key = { it.id }) { product ->
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(product.name, style = MaterialTheme.typography.titleMedium)
-                        Text("${product.category} · $${product.price}")
-                        Text(if (product.available) "Disponible" else "No disponible")
-                        Row {
-                            TextButton(onClick = { repository.updateAvailable(product.id, !product.available); refresh() }) { Text(if (product.available) "Desactivar" else "Activar") }
-                            TextButton(onClick = { editing = product; creating = true }) { Text("Editar") }
+            OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp), label = { Text("Buscar productos...") }, singleLine = true)
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("Todos", "Activos", "Inactivos").forEach { value -> FilterChip(selected = filter == value, onClick = { filter = value }, label = { Text(value) }) }
+            }
+            LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(visibleProducts, key = { it.id }) { product ->
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(product.name, style = MaterialTheme.typography.titleMedium)
+                            Text("${product.category} · $${product.price}")
+                            Text(if (product.available) "Disponible" else "No disponible")
+                            Row {
+                                TextButton(onClick = { repository.updateAvailable(product.id, !product.available); refresh() }) { Text(if (product.available) "Desactivar" else "Activar") }
+                                TextButton(onClick = { editing = product; creating = true }) { Text("Editar") }
+                            }
                         }
                     }
                 }
+                if (visibleProducts.isEmpty()) item { Text("Aún no hay productos para este filtro.") }
             }
-            if (visibleProducts.isEmpty()) item { Text("Aún no hay productos para este filtro.") }
-        }
         }
     }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) pendingImage = uri.toString()
-    }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> if (uri != null) pendingImage = uri.toString() }
     LaunchedEffect(pickImage) { if (pickImage) { picker.launch("image/*"); pickImage = false } }
     if (creating) ProductEditorDialog(
         initial = editing,
@@ -112,10 +123,7 @@ fun AdminProductsScreen(repository: ProductRepository, onBack: () -> Unit, curre
 }
 
 @Composable
-private fun ProductEditorDialog(
-    initial: Product?, imageUri: String?, onDismiss: () -> Unit, onSave: (Product) -> Unit,
-    onCamera: () -> Unit, onPickImage: () -> Unit
-) {
+private fun ProductEditorDialog(initial: Product?, imageUri: String?, onDismiss: () -> Unit, onSave: (Product) -> Unit, onCamera: () -> Unit, onPickImage: () -> Unit) {
     var name by remember(initial) { mutableStateOf(initial?.name.orEmpty()) }
     var description by remember(initial) { mutableStateOf(initial?.description.orEmpty()) }
     var category by remember(initial) { mutableStateOf(initial?.category.orEmpty()) }

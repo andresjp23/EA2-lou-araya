@@ -9,12 +9,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -47,11 +44,11 @@ fun NotificationsScreen(
     onMap: () -> Unit,
     onProfile: () -> Unit,
     onProducts: () -> Unit,
-    currentRoute: String?,
+    currentRoute: String?
 ) {
     var selected by remember { mutableStateOf("Todas") }
     val visibleNotifications = if (isAdmin) {
-        notifications.filter { it.category != "Campañas" || it.title.contains("solicitud", true) }
+        notifications.filter { it.category != "Campañas" || it.title.contains("solicitud", ignoreCase = true) }
     } else notifications
     val filters = listOf("Todas", "Campañas", "Solicitudes", "Eventos")
     val filtered = visibleNotifications.filter { selected == "Todas" || it.category == selected }
@@ -79,14 +76,16 @@ fun NotificationsScreen(
             }
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 8.dp)) {
                 items(filtered, key = { it.id }) { notice ->
-                    Card(Modifier.fillMaxWidth().clickable {
-                        onRead(notice.id)
-                        when (notice.category) {
-                            "Eventos" -> onOpenEvents()
-                            "Solicitudes" -> onOpenRequests()
-                            else -> onOpenCampaigns()
+                    Card(
+                        Modifier.fillMaxWidth().clickable {
+                            onRead(notice.id)
+                            when (notice.category) {
+                                "Eventos" -> onOpenEvents()
+                                "Solicitudes" -> onOpenRequests()
+                                else -> onOpenCampaigns()
+                            }
                         }
-                    }) {
+                    ) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                             Text(notice.title, style = MaterialTheme.typography.titleMedium)
                             Text(notice.description)

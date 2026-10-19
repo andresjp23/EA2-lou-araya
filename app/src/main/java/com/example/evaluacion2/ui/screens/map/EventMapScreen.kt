@@ -179,6 +179,11 @@ fun EventMapScreen(
                     locationMessage?.let { message ->
                         Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                    Text(
+                        "Mapa © OpenStreetMap contributors",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 

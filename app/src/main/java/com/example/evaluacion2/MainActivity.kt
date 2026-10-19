@@ -1,6 +1,7 @@
 package com.example.evaluacion2
 
 import android.os.Bundle
+import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,7 +19,10 @@ class MainActivity : ComponentActivity() {
     ) {
 
         super.onCreate(savedInstanceState)
-        Configuration.getInstance().userAgentValue = packageName
+        Configuration.getInstance().apply {
+            load(this@MainActivity, getSharedPreferences("osmdroid", Context.MODE_PRIVATE))
+            userAgentValue = "LouArayaEventos/1.0 (Android; contact: admin@louaraya.cl)"
+        }
 
         setContent {
 

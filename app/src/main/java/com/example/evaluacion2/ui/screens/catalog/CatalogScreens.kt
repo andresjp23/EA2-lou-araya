@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.runtime.*
@@ -28,7 +29,9 @@ import com.example.evaluacion2.viewmodel.FavoritesViewModel
 import com.example.evaluacion2.viewmodel.QuoteViewModel
 import com.example.evaluacion2.viewmodel.RequestsViewModel
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.TimeZone
 
 private fun money(value: Int) = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("es-CL")).format(value)
 
@@ -144,6 +147,7 @@ fun FavoritesScreen(vm: FavoritesViewModel, onBack: () -> Unit, onProduct: (Int)
 fun QuoteFormScreen(vm: QuoteViewModel, onBack: () -> Unit, onSuccess: () -> Unit, currentRoute: String? = null, onHome: () -> Unit = {}, onCatalog: () -> Unit = {}, onMap: () -> Unit = {}, onRequests: () -> Unit = {}, onProfile: () -> Unit = {}) {
     val state by vm.state.collectAsState()
     var showSuccess by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(state.successMessage) { if (state.successMessage != null) showSuccess = true }
@@ -159,14 +163,60 @@ fun QuoteFormScreen(vm: QuoteViewModel, onBack: () -> Unit, onSuccess: () -> Uni
             OutlinedTextField(state.dimensions, vm::setDimensions, modifier = Modifier.fillMaxWidth(), label = { Text("Dimensiones aproximadas") }, placeholder = { Text("3 x 2 metros") }, isError = state.errors["dimensions"] != null, supportingText = state.errors["dimensions"]?.let { { Text(it) } })
             SelectField("Material preferido", state.material, listOf("Algodón natural", "Yute", "Lana", "Mezcla de fibras", "A definir"), vm::setMaterial, state.errors["material"])
             SelectField("Color o paleta de colores", state.colors, listOf("Tonos naturales", "Blanco y beige", "Tonos tierra", "Personalizados"), vm::setColors, state.errors["colors"])
-            OutlinedTextField(state.requiredDate, vm::setRequiredDate, modifier = Modifier.fillMaxWidth(), label = { Text("Fecha requerida") }, placeholder = { Text("Selecciona una fecha") }, isError = state.errors["requiredDate"] != null, supportingText = state.errors["requiredDate"]?.let { { Text(it) } })
+            Box(Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = state.requiredDate,
+                    onValueChange = {},
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Fecha requerida") },
+                    placeholder = { Text("Selecciona una fecha") },
+                    readOnly = true,
+                    trailingIcon = { Icon(Icons.Default.DateRange, contentDescription = "Abrir calendario") },
+                    isError = state.errors["requiredDate"] != null,
+                    supportingText = state.errors["requiredDate"]?.let { { Text(it) } }
+                )
+                Box(Modifier.matchParentSize().clickable { showDatePicker = true })
+            }
             OutlinedTextField(value = state.observations, onValueChange = vm::setObservations, modifier = Modifier.fillMaxWidth(), label = { Text("Observaciones") }, isError = state.errors["observations"] != null, supportingText = state.errors["observations"]?.let { message -> { Text(message) } }, minLines = 3)
             state.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             Button(onClick = vm::submit, enabled = !state.isSaving, modifier = Modifier.fillMaxWidth()) { Text(if (state.isSaving) "Guardando…" else "Enviar solicitud") }
         }
     }
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = state.requiredDate.toUtcDateMillis()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { vm.setRequiredDate(it.toIsoDate()) }
+                    showDatePicker = false
+                }) { Text("Aceptar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancelar") }
+            }
+        ) {
+            DatePicker(
+                state = datePickerState,
+                title = { Text("Selecciona la fecha requerida", Modifier.padding(16.dp)) }
+            )
+        }
+    }
     if (showSuccess && state.successMessage != null) AlertDialog(onDismissRequest = { showSuccess = false; onSuccess() }, title = { Text("Solicitud enviada") }, text = { Text(state.successMessage.orEmpty()) }, confirmButton = { TextButton(onClick = { showSuccess = false; onSuccess() }) { Text("Ver solicitudes") } })
 }
+
+private fun String.toUtcDateMillis(): Long? = runCatching {
+    SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply {
+        isLenient = false
+        timeZone = TimeZone.getTimeZone("UTC")
+    }.parse(this)?.time
+}.getOrNull()
+
+private fun Long.toIsoDate(): String = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply {
+    timeZone = TimeZone.getTimeZone("UTC")
+}.format(this)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

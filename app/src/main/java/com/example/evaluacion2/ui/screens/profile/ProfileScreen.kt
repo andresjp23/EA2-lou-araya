@@ -85,10 +85,8 @@ fun ProfileScreen(userId: Int, userRepository: UserRepository, preferencesReposi
             TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))) }, modifier = Modifier.fillMaxWidth()) { Text("Configurar permisos del dispositivo") }
             Text("Preferencias de productos", style = MaterialTheme.typography.titleMedium)
             Text("Tus favoritos y solicitudes se guardan por perfil en este dispositivo.", style = MaterialTheme.typography.bodySmall)
-            TextButton(onClick = { showEdit = true }, modifier = Modifier.fillMaxWidth()) { Text("Mis datos personales · Editar") }
-            TextButton(onClick = { showEdit = true }, modifier = Modifier.fillMaxWidth()) { Text("Dirección de envío") }
-            TextButton(onClick = { showEdit = true }, modifier = Modifier.fillMaxWidth()) { Text("Ayuda y soporte") }
             Button(onClick = { showEdit = true }, modifier = Modifier.fillMaxWidth()) { Text("Editar perfil") }
+            Button(onClick = onLogout, modifier = Modifier.fillMaxWidth()) { Text("Cerrar sesión") }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column(Modifier.weight(1f)) {
                     Text("Notificaciones", style = MaterialTheme.typography.titleMedium)
@@ -100,17 +98,11 @@ fun ProfileScreen(userId: Int, userRepository: UserRepository, preferencesReposi
                     else vm.setNotificationsEnabled(true)
                 }, modifier = Modifier.semantics { contentDescription = "Preferencia de notificaciones" })
             }
-            Button(onClick = { LocalNotificationHelper.show(context, "Lou Araya", "Las notificaciones locales están listas.") }, enabled = notificationsEnabled, modifier = Modifier.fillMaxWidth()) { Text("Probar notificación local") }
-            TextButton(onClick = { showChangeUser = true }, modifier = Modifier.fillMaxWidth()) { Text("Cambiar usuario") }
-            Button(onClick = onLogout, modifier = Modifier.fillMaxWidth()) { Text("Cerrar sesión") }
-            TextButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Volver") }
-            if (message != null) Text(message.orEmpty(), color = MaterialTheme.colorScheme.primary)
         }
     }
     if (showEdit && user != null) ProfileEditorDialog(user!!, onDismiss = { showEdit = false }) { name, alias, phone ->
         if (vm.updateProfile(name, alias, phone)) showEdit = false
     }
-    if (showChangeUser) AlertDialog(onDismissRequest = { showChangeUser = false }, title = { Text("Cambiar usuario") }, text = { Text("Se cerrará la sesión actual y podrás ingresar con otra cuenta guardada en este dispositivo.") }, confirmButton = { TextButton(onClick = onLogout) { Text("Continuar") } }, dismissButton = { TextButton(onClick = { showChangeUser = false }) { Text("Cancelar") } })
 }
 
 @Composable

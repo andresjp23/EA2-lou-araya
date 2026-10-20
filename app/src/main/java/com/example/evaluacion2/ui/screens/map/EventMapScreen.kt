@@ -56,7 +56,8 @@ import androidx.core.content.ContextCompat
 import com.example.evaluacion2.domain.model.FairEvent
 import com.example.evaluacion2.ui.components.ClientBottomBar
 import com.example.evaluacion2.ui.navigation.Routes
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.tileprovider.tilesource.TileSourcePolicy
+import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
@@ -66,6 +67,21 @@ import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
 private const val EVENT_ZOOM = 13.5
 private val SANTIAGO_CENTER = GeoPoint(-33.4489, -70.6693)
+private val LOU_ARAYA_OSM_TILES = XYTileSource(
+    "LouArayaOpenStreetMap",
+    0,
+    19,
+    256,
+    ".png",
+    arrayOf("https://tile.openstreetmap.org/"),
+    "© OpenStreetMap contributors",
+    TileSourcePolicy(
+        2,
+        TileSourcePolicy.FLAG_NO_BULK or
+            TileSourcePolicy.FLAG_NO_PREVENTIVE or
+            TileSourcePolicy.FLAG_USER_AGENT_MEANINGFUL
+    )
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -224,7 +240,7 @@ private fun rememberEventMapView(): MapView {
     val mapView = remember {
         // MainActivity configures osmdroid once with the app's stable user agent.
         MapView(context).apply {
-            setTileSource(TileSourceFactory.MAPNIK)
+            setTileSource(LOU_ARAYA_OSM_TILES)
             setMultiTouchControls(true)
             isTilesScaledToDpi = true
             zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)

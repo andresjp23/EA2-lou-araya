@@ -21,7 +21,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Configuration.getInstance().apply {
             load(this@MainActivity, getSharedPreferences("osmdroid", Context.MODE_PRIVATE))
-            userAgentValue = "LouArayaEventos/1.0 (Android; contact: admin@louaraya.cl)"
+            userAgentValue = "LouArayaMacrame/1.0 (+https://github.com/andresjp23/EA2-lou-araya)"
         }
 
         setContent {

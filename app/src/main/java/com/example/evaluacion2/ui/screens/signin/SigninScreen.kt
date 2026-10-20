@@ -246,9 +246,6 @@ fun SignInScreen(
 
 
         TextButton(onClick = { }, modifier = Modifier.fillMaxWidth()) { Text("¿Olvidaste tu contraseña?") }
-        Text("o continúa con", style = MaterialTheme.typography.bodySmall)
-        OutlinedButton(onClick = { }, modifier = Modifier.fillMaxWidth()) { Text("Google (demo local no disponible)") }
-        TextButton(onClick = onBackClick, modifier = Modifier.fillMaxWidth()) { Text("← Regresar") }
 
         uiState.generalError?.let {
 

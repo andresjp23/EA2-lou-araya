@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -30,7 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.evaluacion2.data.repository.CampaignRepository
@@ -39,6 +37,7 @@ import com.example.evaluacion2.domain.validation.CampaignValidator
 import com.example.evaluacion2.viewmodel.CampaignsViewModel
 import com.example.evaluacion2.ui.components.AdminBottomBar
 import com.example.evaluacion2.ui.components.ClientBottomBar
+import com.example.evaluacion2.ui.components.DatePickerField
 import com.example.evaluacion2.ui.navigation.Routes
 
 @Composable
@@ -59,7 +58,7 @@ fun CampaignsScreen(repository: CampaignRepository, isAdmin: Boolean, onBack: ()
                 TextButton(onClick = onBack) { Text("Volver") }
             }
             if (isAdmin) Button(onClick = { editing = null; showForm = true }, modifier = Modifier.fillMaxWidth()) { Text("+ Nueva campaña") }
-            if (isAdmin) Text("Colecciones · Campañas · Categorías", style = MaterialTheme.typography.labelLarge)
+            if (isAdmin) Text("Colecciones · Campañas", style = MaterialTheme.typography.labelLarge)
             if (campaigns.isEmpty() && !isAdmin) Text("No hay campañas disponibles.", style = MaterialTheme.typography.bodyLarge)
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(campaigns, key = { it.id }) { campaign ->
@@ -102,8 +101,8 @@ private fun CampaignEditorDialog(initial: Campaign?, onDismiss: () -> Unit, onSa
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(title, { title = it }, label = { Text("Título") }, singleLine = true, isError = errors.containsKey("title"), supportingText = { errors["title"]?.let { Text(it) } })
                 OutlinedTextField(description, { description = it }, label = { Text("Descripción") })
-                OutlinedTextField(startDate, { startDate = it }, label = { Text("Inicio (AAAA-MM-DD)") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii), isError = errors.containsKey("startDate"), supportingText = { errors["startDate"]?.let { Text(it) } })
-                OutlinedTextField(endDate, { endDate = it }, label = { Text("Término (AAAA-MM-DD)") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii), isError = errors.containsKey("endDate"), supportingText = { errors["endDate"]?.let { Text(it) } })
+                DatePickerField(startDate, { startDate = it }, "Fecha de inicio", error = errors["startDate"])
+                DatePickerField(endDate, { endDate = it }, "Fecha de término", error = errors["endDate"])
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Campaña activa", modifier = Modifier.padding(top = 12.dp))
                     Switch(checked = active, onCheckedChange = { active = it }, modifier = Modifier.semantics { contentDescription = "Campaña activa" })

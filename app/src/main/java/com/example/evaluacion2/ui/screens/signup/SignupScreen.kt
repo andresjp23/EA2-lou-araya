@@ -273,7 +273,7 @@ fun SignUpScreen(
         Spacer(modifier = Modifier.height(12.dp))
         Text("Selecciona un avatar", style = MaterialTheme.typography.titleSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("🌿", "🌸", "🧶", "✨").forEach { option ->
+            listOf("😍","😁", "👽", "😸").forEach { option ->
                 FilterChip(selected = avatar == option, onClick = { avatar = option; avatarUri = null; viewModel.onAvatarUriChange(null) }, label = { Text(option) })
             }
             TextButton(onClick = { avatarPicker.launch("image/*") }) { Text(if (avatarUri == null) "+ Agregar otro" else "Avatar personalizado seleccionado") }

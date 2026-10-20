@@ -93,7 +93,7 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(40.dp))
 
             Text(
-                text = "Lou Araya Macramé\nArte en fibras que decora tus historias",
+                text = "Arte en fibras que decora tus historias",
                 fontSize = 14.sp,
                 lineHeight = 20.sp,
                 color = Color.White,
@@ -141,7 +141,7 @@ fun LoginScreen(
                 )
             ) {
                 Text(
-                    text = "No tengo cuenta · Registro",
+                    text = "Regístrate",
                     fontWeight = FontWeight.Medium
                 )
             }

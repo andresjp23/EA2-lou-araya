@@ -6,11 +6,12 @@ import org.junit.Test
 
 class QuoteRequestValidatorTest {
     @Test fun validRequestHasNoFieldErrors() {
-        assertTrue(QuoteRequestValidator.validate("Matrimonio", "2 x 3 m", "Madera", "Blanco", "2030-04-25").isEmpty())
+        assertTrue(QuoteRequestValidator.validate("Arco de ceremonia", "Matrimonio", "2 x 3 m", "Madera", "Blanco", "2030-04-25").isEmpty())
     }
 
     @Test fun reportsMissingFieldsIndividually() {
-        val errors = QuoteRequestValidator.validate("", "", "", "", "")
+        val errors = QuoteRequestValidator.validate("", "", "", "", "", "")
+        assertTrue(errors.containsKey("productType"))
         assertTrue(errors.containsKey("eventType"))
         assertTrue(errors.containsKey("dimensions"))
         assertTrue(errors.containsKey("material"))
@@ -19,6 +20,6 @@ class QuoteRequestValidatorTest {
     }
 
     @Test fun acceptsSelectedDeadlineOption() {
-        assertTrue(QuoteRequestValidator.validate("Evento", "Mediano", "Algodón", "Tonos naturales", "En 1 mes").isEmpty())
+        assertTrue(QuoteRequestValidator.validate("Tapiz mural", "Evento", "Mediano", "Algodón", "Tonos naturales", "En 1 mes").isEmpty())
     }
 }

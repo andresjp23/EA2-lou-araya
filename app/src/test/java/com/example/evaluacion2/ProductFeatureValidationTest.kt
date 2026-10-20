@@ -10,6 +10,7 @@ import org.junit.Test
 class ProductFeatureValidationTest {
     @Test
     fun parsesProductQrFormats() {
+        assertEquals("product:42", ProductQrPayload.forProduct(42))
         assertEquals(42, ProductQrPayload.parseProductId("product:42"))
         assertEquals(42, ProductQrPayload.parseProductId(" 42 "))
         assertNull(ProductQrPayload.parseProductId("product:0"))

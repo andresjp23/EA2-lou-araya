@@ -43,6 +43,7 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.6.2")
     implementation("androidx.camera:camera-view:1.6.2")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
+    implementation("com.google.zxing:core:3.5.4")
     implementation(libs.osmdroid.android)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)

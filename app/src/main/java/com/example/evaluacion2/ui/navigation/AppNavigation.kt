@@ -146,8 +146,13 @@ fun AppNavigation() {
         composable(Routes.DASHBOARD_CLIENT) {
             val vm: DashboardFavoritesViewModel = viewModel(key = "home-favorites-$currentUserId") { DashboardFavoritesViewModel(currentUserId, favoriteRepository, productRepository) }
             val favoriteProducts by vm.favorites.collectAsState()
+            val featuredProducts = remember(favoriteProducts, currentRoute) {
+                (favoriteProducts + productRepository.getProducts().filter { it.available })
+                    .distinctBy { it.id }
+                    .take(4)
+            }
             LaunchedEffect(currentRoute) { vm.refresh() }
-            DashboardScreen(currentName, favoriteProducts, { navController.navigate("${Routes.PRODUCT_DETAIL}/$it") }, { navController.navigate(Routes.FAVORITES) }, { navController.navigate(Routes.CATALOG) }, { navController.navigate(Routes.MAP) }, { navController.navigate(Routes.QR_SCANNER) }, { navController.navigate(Routes.REQUESTS) }, { navController.navigate(Routes.PROFILE) }, { navController.navigate(Routes.NOTIFICATION_INBOX) }, ::logout)
+            DashboardScreen(currentName, featuredProducts, { navController.navigate("${Routes.PRODUCT_DETAIL}/$it") }, { navController.navigate(Routes.FAVORITES) }, { navController.navigate(Routes.CATALOG) }, { navController.navigate(Routes.MAP) }, { navController.navigate(Routes.QR_SCANNER) }, { navController.navigate(Routes.REQUESTS) }, { navController.navigate(Routes.PROFILE) }, { navController.navigate(Routes.NOTIFICATION_INBOX) }, ::logout)
         }
         composable(Routes.NOTIFICATION_INBOX) {
             val notifications = remember(currentUserId) { notificationRepository.getForUser(currentUserId) }
@@ -179,9 +184,8 @@ fun AppNavigation() {
             val product = remember(id) { productRepository.findById(id) }
             val vm: DetailViewModel = viewModel(key = "detail-$currentUserId-$id") { DetailViewModel(currentUserId, id, favoriteRepository) }
             val isFavorite by vm.isFavorite.collectAsState()
-            val isHomeFavorite by vm.isHomeFavorite.collectAsState()
             LaunchedEffect(Unit) { vm.refresh() }
-            ProductDetailScreen(product, isFavorite, isHomeFavorite, vm::toggleFavorite, vm::toggleHomeFavorite, { navController.navigate("${Routes.QUOTE}?productId=$id") }, { navController.popBackStack() }, currentRole == User.ROLE_ADMIN)
+            ProductDetailScreen(product, isFavorite, vm::toggleFavorite, { navController.navigate("${Routes.QUOTE}?productId=$id") }, { navController.popBackStack() }, currentRole == User.ROLE_ADMIN)
         }
         composable(Routes.FAVORITES) {
             val vm: FavoritesViewModel = viewModel(key = "favorites-$currentUserId") { FavoritesViewModel(currentUserId, favoriteRepository, productRepository) }
@@ -190,13 +194,17 @@ fun AppNavigation() {
         }
         composable("${Routes.QUOTE}?productId={productId}", arguments = listOf(navArgument("productId") { type = NavType.IntType; defaultValue = 0 })) { entry ->
             val productId = entry.arguments?.getInt("productId")?.takeIf { it > 0 }
-            val vm: QuoteViewModel = viewModel(key = "quote-${productId ?: 0}-${entry.id}") { QuoteViewModel(currentUserId, productId, requestRepository) }
+            val vm: QuoteViewModel = viewModel(key = "quote-${productId ?: 0}-${entry.id}") {
+                QuoteViewModel(currentUserId, productId, requestRepository, productRepository)
+            }
             QuoteFormScreen(vm, { navController.popBackStack() }, { navController.navigate(Routes.REQUESTS) { launchSingleTop = true } }, currentRoute, { navController.navigate(Routes.DASHBOARD_CLIENT) }, { navController.navigate(Routes.CATALOG) }, { navController.navigate(Routes.MAP) }, { navController.navigate(Routes.REQUESTS) }, { navController.navigate(Routes.PROFILE) })
         }
         composable(Routes.REQUESTS) {
             val vm: RequestsViewModel = viewModel(key = "requests-$currentUserId-$currentRole") { RequestsViewModel(currentUserId, currentRole == User.ROLE_ADMIN, requestRepository) }
             LaunchedEffect(currentRoute) { vm.refresh() }
-            RequestsScreen(vm, currentRole == User.ROLE_ADMIN, { navController.popBackStack() }, { navController.navigate(Routes.QUOTE) }, currentRoute, { navController.navigate(dashboardFor(currentRole)) }, { navController.navigate(Routes.CATALOG) }, { navController.navigate(Routes.MAP) }, { navController.navigate(Routes.PROFILE) }, { navController.navigate(Routes.NOTIFICATION_INBOX) }, requestRepository::getOwnerName)
+            RequestsScreen(vm, currentRole == User.ROLE_ADMIN, { navController.popBackStack() }, { navController.navigate(Routes.QUOTE) }, currentRoute, { navController.navigate(dashboardFor(currentRole)) }, { navController.navigate(Routes.CATALOG) }, { navController.navigate(Routes.MAP) }, { navController.navigate(Routes.PROFILE) }, { navController.navigate(Routes.NOTIFICATION_INBOX) }, requestRepository::getOwnerName) { productId ->
+                productRepository.findById(productId)?.name ?: "Producto no disponible"
+            }
         }
         composable(Routes.MAP) {
             EventMapScreen(eventRepository.getAll(), navController::popBackStack, currentRoute, { navController.navigate(Routes.DASHBOARD_CLIENT) }, { navController.navigate(Routes.CATALOG) }, { navController.navigate(Routes.REQUESTS) }, { navController.navigate(Routes.PROFILE) })

@@ -47,6 +47,7 @@ import com.example.evaluacion2.domain.model.Product
 import com.example.evaluacion2.ui.components.ClientBottomBar
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import com.example.evaluacion2.ui.components.AdminBottomBar
+import com.example.evaluacion2.ui.components.ProductImage
 import com.example.evaluacion2.ui.navigation.Routes
 
 data class QuickAccessItem(val title: String, val icon: ImageVector, val onClick: () -> Unit)
@@ -54,7 +55,7 @@ data class QuickAccessItem(val title: String, val icon: ImageVector, val onClick
 @Composable
 fun DashboardScreen(
     userName: String,
-    favoriteProducts: List<Product>,
+    featuredProducts: List<Product>,
     onFavoriteProductClick: (Int) -> Unit,
     onFavoritesClick: () -> Unit,
     onCatalogClick: () -> Unit,
@@ -103,7 +104,6 @@ fun DashboardScreen(
             item {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("Accesos rápidos", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    TextButton(onClick = onFavoritesClick) { Text("Favoritos") }
                 }
             }
             item {
@@ -120,18 +120,21 @@ fun DashboardScreen(
                 }
             }
             item { Text(if (isAdmin) "Resumen del catálogo" else "Productos destacados", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
-            if (favoriteProducts.isEmpty()) {
-                item { Text(if (isAdmin) "Gestiona productos, colecciones y solicitudes pendientes desde los accesos." else "Aún no has agregado productos a favoritos.", style = MaterialTheme.typography.bodyMedium) }
-            } else {
+            if (isAdmin && featuredProducts.isEmpty()) {
+                item { Text("Gestiona productos, colecciones y solicitudes pendientes desde los accesos.", style = MaterialTheme.typography.bodyMedium) }
+            } else if (featuredProducts.isNotEmpty()) {
                 item {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        items(favoriteProducts.take(4), key = { "home-favorite-${it.id}" }) { product ->
+                        items(featuredProducts, key = { "featured-product-${it.id}" }) { product ->
                             Card(onClick = { onFavoriteProductClick(product.id) }, modifier = Modifier.width(220.dp), shape = RoundedCornerShape(16.dp)) {
-                                Column(Modifier.padding(16.dp)) {
-                                    Icon(Icons.Default.Favorite, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                    Text(product.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                    Text(product.category, style = MaterialTheme.typography.bodySmall)
-                                    Text("$${product.price}", style = MaterialTheme.typography.titleSmall)
+                                Column {
+                                    ProductImage(product = product, modifier = Modifier.fillMaxWidth().height(130.dp))
+                                    Column(Modifier.padding(16.dp)) {
+                                        Icon(Icons.Default.Favorite, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                        Text(product.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                        Text(product.category, style = MaterialTheme.typography.bodySmall)
+                                        Text("$${product.price}", style = MaterialTheme.typography.titleSmall)
+                                    }
                                 }
                             }
                         }

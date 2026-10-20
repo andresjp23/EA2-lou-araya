@@ -54,6 +54,7 @@ class AppDatabaseHelper(context: Context) :
                 seedCampaignsIfEmpty(db)
                 seedProductsIfEmpty(db)
             }
+            if (oldVersion < 9) migrateBundledCatalogImages(db)
         }
     }
 
@@ -223,20 +224,66 @@ class AppDatabaseHelper(context: Context) :
     private fun seedProductsIfEmpty(db: SQLiteDatabase) {
         val hasProducts = db.rawQuery("SELECT COUNT(*) FROM $TABLE_PRODUCTS", null).use { it.moveToFirst() && it.getInt(0) > 0 }
         if (hasProducts) return
-        val products = listOf(
-            arrayOf("Arco de ceremonia", "Estructura artesanal para ceremonias y celebraciones.", "220 x 180 cm", "Algodón natural", "Matrimonios", "120000", "Bodas de Ensueño"),
-            arrayOf("Tapiz mural", "Pieza tejida a mano inspirada en la naturaleza andina.", "90 x 70 cm", "Algodón natural", "Interiores", "65000", "Hogares con Alma"),
-            arrayOf("Colgante de plantas", "Macetero colgante de fibras naturales.", "45 cm", "Yute y algodón", "Interiores", "28000", "Hogares con Alma"),
-            arrayOf("Cortina decorativa", "Cortina artesanal para ambientes cálidos.", "200 x 180 cm", "Algodón", "Festivales", "85000", "Festivales Libres"),
-            arrayOf("Atrapasueños", "Decoración artesanal liviana.", "40 cm", "Algodón y madera", "Festivales", "32000", "Viajes que Inspiran")
-        )
-        products.forEach { sample ->
-            db.insert(TABLE_PRODUCTS, null, ContentValues().apply {
-                put(COLUMN_NAME, sample[0]); put(COLUMN_DESCRIPTION, sample[1]); put(COLUMN_DIMENSIONS, sample[2]); put(COLUMN_MATERIALS, sample[3])
-                put(COLUMN_CATEGORY, sample[4]); put(COLUMN_PRICE, sample[5].toInt()); put(COLUMN_AVAILABLE, 1); put(COLUMN_COLLECTION, sample[6])
-            })
+        productSeeds.forEach { seed ->
+            insertSeedProduct(db, seed)
         }
     }
+
+    private fun migrateBundledCatalogImages(db: SQLiteDatabase) {
+        productSeeds.forEach { seed ->
+            val exists = db.rawQuery(
+                "SELECT 1 FROM $TABLE_PRODUCTS WHERE $COLUMN_NAME = ? COLLATE NOCASE LIMIT 1",
+                arrayOf(seed.name)
+            ).use { it.moveToFirst() }
+
+            if (exists) {
+                db.update(
+                    TABLE_PRODUCTS,
+                    ContentValues().apply { put(COLUMN_IMAGE_URI, seed.imageUri) },
+                    "$COLUMN_NAME = ? COLLATE NOCASE AND ($COLUMN_IMAGE_URI IS NULL OR $COLUMN_IMAGE_URI = '')",
+                    arrayOf(seed.name)
+                )
+            } else {
+                insertSeedProduct(db, seed)
+            }
+        }
+    }
+
+    private fun insertSeedProduct(db: SQLiteDatabase, seed: ProductSeed) {
+        db.insert(TABLE_PRODUCTS, null, ContentValues().apply {
+            put(COLUMN_NAME, seed.name)
+            put(COLUMN_DESCRIPTION, seed.description)
+            put(COLUMN_DIMENSIONS, seed.dimensions)
+            put(COLUMN_MATERIALS, seed.materials)
+            put(COLUMN_CATEGORY, seed.category)
+            put(COLUMN_PRICE, seed.price)
+            put(COLUMN_AVAILABLE, 1)
+            put(COLUMN_IMAGE_URI, seed.imageUri)
+            put(COLUMN_COLLECTION, seed.collection)
+        })
+    }
+
+    private data class ProductSeed(
+        val name: String,
+        val description: String,
+        val dimensions: String,
+        val materials: String,
+        val category: String,
+        val price: Int,
+        val collection: String,
+        val imageUri: String
+    )
+
+    private val productSeeds = listOf(
+        ProductSeed("Arco de ceremonia", "Estructura artesanal para ceremonias y celebraciones.", "220 x 180 cm", "Algodón natural", "Matrimonios", 120000, "Bodas de Ensueño", "drawable:arco_de_ceremonia"),
+        ProductSeed("Tapiz mural", "Pieza tejida a mano inspirada en la naturaleza andina.", "90 x 70 cm", "Algodón natural", "Interiores", 65000, "Hogares con Alma", "drawable:tapiz_mural"),
+        ProductSeed("Colgante de plantas", "Macetero colgante de fibras naturales.", "45 cm", "Yute y algodón", "Interiores", 28000, "Hogares con Alma", "drawable:macetero_colgante"),
+        ProductSeed("Cortina decorativa", "Cortina artesanal para ambientes cálidos.", "200 x 180 cm", "Algodón", "Festivales", 85000, "Festivales Libres", "drawable:cortina_decorativa"),
+        ProductSeed("Atrapasueños", "Decoración artesanal liviana.", "40 cm", "Algodón y madera", "Festivales", 32000, "Viajes que Inspiran", "drawable:atrapasuenos"),
+        ProductSeed("Centro de mesa", "Centro de mesa tejido para celebraciones y matrimonios.", "35 x 45 cm", "Algodón natural y flores secas", "Matrimonios", 45000, "Bodas de Ensueño", "drawable:centro_de_mesa"),
+        ProductSeed("Colgante textil festival", "Pieza textil decorativa para escenarios y encuentros al aire libre.", "120 x 100 cm", "Algodón y madera", "Festivales", 72000, "Festivales Libres", "drawable:colgante_textil_festival"),
+        ProductSeed("Tapiz mural Sol Andino", "Tapiz inspirado en el sol y los paisajes de la cordillera.", "110 x 90 cm", "Algodón natural y madera", "Interiores", 78000, "Hogares con Alma", "drawable:tapiz_mural_sol_andino")
+    )
 
     private fun seedCampaignsIfEmpty(db: SQLiteDatabase) {
         val hasCampaigns = db.rawQuery("SELECT COUNT(*) FROM $TABLE_CAMPAIGNS", null).use { it.moveToFirst() && it.getInt(0) > 0 }
@@ -279,7 +326,7 @@ class AppDatabaseHelper(context: Context) :
 
     companion object {
         private const val DATABASE_NAME = "lou_araya.db"
-        private const val DATABASE_VERSION = 8
+        private const val DATABASE_VERSION = 9
 
         const val TABLE_USERS = "users"
         const val TABLE_PRODUCTS = "products"

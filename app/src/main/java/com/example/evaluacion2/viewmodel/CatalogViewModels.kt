@@ -47,7 +47,8 @@ class FavoritesViewModel(
 }
 
 data class QuoteFormState(
-    val productName: String = "",
+    val productType: String = "",
+    val productOptions: List<String> = emptyList(),
     val eventType: String = "",
     val dimensions: String = "",
     val material: String = "",
@@ -62,14 +63,28 @@ data class QuoteFormState(
 
 class QuoteViewModel(
     private val userId: Int,
-    private val productId: Int?,
-    private val repository: RequestRepository
+    private val initialProductId: Int?,
+    private val repository: RequestRepository,
+    private val productRepository: ProductRepository
 ) : ViewModel() {
     private val _state = MutableStateFlow(QuoteFormState())
     val state: StateFlow<QuoteFormState> = _state.asStateFlow()
+    private var products: List<Product> = emptyList()
 
+    init {
+        viewModelScope.launch {
+            products = withContext(Dispatchers.IO) { productRepository.getProducts() }
+            val initialProduct = initialProductId?.let { id -> products.firstOrNull { it.id == id } }
+            _state.value = _state.value.copy(
+                productType = initialProduct?.name.orEmpty(),
+                productOptions = products.map { it.name }.distinct()
+            )
+        }
+    }
+
+    fun setProductType(value: String) = update { copy(productType = value) }
     fun setEventType(value: String) = update { copy(eventType = value) }
-        fun setDimensions(value: String) = update { copy(dimensions = value) }
+    fun setDimensions(value: String) = update { copy(dimensions = value) }
     fun setMaterial(value: String) = update { copy(material = value) }
     fun setColors(value: String) = update { copy(colors = value) }
     fun setRequiredDate(value: String) = update { copy(requiredDate = value) }
@@ -80,8 +95,8 @@ class QuoteViewModel(
     }
 
     fun submit() {
-        val current = _state.value.copy(productName = productId?.let { "Producto #$it" }.orEmpty())
-        val errors = QuoteRequestValidator.validate(current.eventType, current.dimensions, current.material, current.colors, current.requiredDate)
+        val current = _state.value
+        val errors = QuoteRequestValidator.validate(current.productType, current.eventType, current.dimensions, current.material, current.colors, current.requiredDate)
         if (errors.isNotEmpty()) {
             _state.value = current.copy(errors = errors)
             return
@@ -91,11 +106,12 @@ class QuoteViewModel(
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
+                    val selectedProductId = products.firstOrNull { it.name == current.productType }?.id
                     repository.save(
                         QuoteRequest(
                             userId = userId,
-                            productId = productId,
-                            eventType = if (current.productName.isBlank()) current.eventType.trim() else "${current.productName} · ${current.eventType.trim()}",
+                            productId = selectedProductId,
+                            eventType = current.eventType.trim(),
                             dimensions = current.dimensions.trim(),
                             material = current.material.trim(),
                             colors = current.colors.trim(),

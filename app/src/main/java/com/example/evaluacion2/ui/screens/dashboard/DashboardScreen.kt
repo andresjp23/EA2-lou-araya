@@ -138,7 +138,6 @@ fun DashboardScreen(
                     }
                 }
             }
-            item { TextButton(onClick = onLogout) { Text("Cerrar sesión") } }
         }
     }
 }

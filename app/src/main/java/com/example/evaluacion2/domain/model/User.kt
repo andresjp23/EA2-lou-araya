@@ -6,10 +6,13 @@ data class User(
     val alias: String,
     val email: String,
     val phone: String,
-    val password: String,
+    /** Solo se usa al registrarse; el backend nunca la devuelve y la app no la guarda. */
+    val password: String = "",
     val role: String = ROLE_CLIENT,
     val avatarUri: String? = null
 ) {
+    val userRole: UserRole get() = UserRole.from(role)
+
     companion object {
         const val ROLE_CLIENT = "CLIENT"
         const val ROLE_ADMIN = "ADMIN"

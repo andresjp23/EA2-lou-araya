@@ -1,8 +1,9 @@
 package com.example.evaluacion2.domain.validation
 
-import android.util.Patterns
 
 object UserValidator {
+
+    private val EMAIL_REGEX = Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
 
     fun validateName(name: String): String? {
         return when {
@@ -33,7 +34,7 @@ object UserValidator {
             email.isBlank() ->
                 "El correo es obligatorio"
 
-            !Patterns.EMAIL_ADDRESS.matcher(email).matches() ->
+            !EMAIL_REGEX.matches(email.trim()) ->
                 "Ingresa un correo válido"
 
             else -> null
@@ -45,7 +46,7 @@ object UserValidator {
             phone.isBlank() ->
                 "El teléfono es obligatorio"
 
-            phone.length < 8 ->
+            phone.filter(Char::isDigit).length < 8 ->
                 "Ingresa un teléfono válido"
 
             else -> null

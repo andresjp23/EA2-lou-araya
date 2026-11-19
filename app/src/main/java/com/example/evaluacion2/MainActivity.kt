@@ -1,7 +1,11 @@
 package com.example.evaluacion2
 
-import android.os.Bundle
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import android.os.Bundle
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.Crossfade
@@ -26,6 +30,7 @@ class MainActivity : ComponentActivity() {
     ) {
 
         super.onCreate(savedInstanceState)
+        requestLocalNetworkAccess()
         Configuration.getInstance().apply {
             load(this@MainActivity, getSharedPreferences("osmdroid", Context.MODE_PRIVATE))
             userAgentValue = "LouArayaMacrame/1.0 (+https://github.com/andresjp23/EA2-lou-araya)"
@@ -60,5 +65,21 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private val localNetworkPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    /**
+     * Desde Android 17 las apps necesitan permiso para hablar con equipos de la red local.
+     * Los microservicios corren en el PC del equipo, así que se pide al abrir la app.
+     */
+    private fun requestLocalNetworkAccess() {
+        if (Build.VERSION.SDK_INT < 37) return
+        val granted = ContextCompat.checkSelfPermission(this, LOCAL_NETWORK) == PackageManager.PERMISSION_GRANTED
+        if (!granted) localNetworkPermission.launch(LOCAL_NETWORK)
+    }
+
+    private companion object {
+        const val LOCAL_NETWORK = "android.permission.ACCESS_LOCAL_NETWORK"
     }
 }

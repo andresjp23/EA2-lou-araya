@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Los microservicios corren en el computador del equipo por HTTP (sin certificado).
+    Se permite tráfico sin cifrar solo hacia esas direcciones locales; el resto exige HTTPS.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <!-- Celular físico: agrega aquí la IP del PC, por ejemplo <domain>192.168.1.50</domain> -->
+    </domain-config>
+</network-security-config>

@@ -47,7 +47,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.example.evaluacion2.data.repository.ProductRepository
+import com.example.evaluacion2.domain.model.Product
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import com.example.evaluacion2.domain.validation.ProductQrPayload
 import com.example.evaluacion2.ui.components.ClientBottomBar
 import com.example.evaluacion2.ui.navigation.Routes
@@ -61,7 +63,7 @@ import java.util.concurrent.Executors
 @ExperimentalGetImage
 @Composable
 fun QrScannerScreen(
-    repository: ProductRepository,
+    findProduct: suspend (Int) -> Product?,
     onBack: () -> Unit,
     onProduct: (Int) -> Unit,
     onRecord: (Int?) -> Unit,
@@ -74,6 +76,7 @@ fun QrScannerScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val scope = rememberCoroutineScope()
     var hasPermission by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) }
     var message by remember { mutableStateOf("Apunta la cámara a un código QR de producto.") }
     var scanning by remember { mutableStateOf(true) }
@@ -88,10 +91,12 @@ fun QrScannerScreen(
                 val scanner = BarcodeScanning.getClient(BarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build())
                 scanner.process(image).addOnSuccessListener { codes ->
                     val id = ProductQrPayload.parseProductId(codes.firstOrNull()?.rawValue)
-                    val product = id?.let(repository::findById)
-                    if (product == null) galleryMessage = "No se encontró un producto válido en la imagen."
-                    else { onRecord(id); onProduct(id) }
                     scanner.close()
+                    scope.launch {
+                        val product = id?.let { findProduct(it) }
+                        if (product == null) galleryMessage = "No se encontró un producto válido en la imagen."
+                        else { onRecord(product.id); onProduct(product.id) }
+                    }
                 }.addOnFailureListener { galleryMessage = "No se pudo leer el QR de la imagen."; scanner.close() }
             }.onFailure { galleryMessage = "No se pudo abrir la imagen seleccionada." }
         }
@@ -124,13 +129,15 @@ fun QrScannerScreen(
                                 if (now - lastHandledAt < 1800) return@addOnSuccessListener
                                 lastHandledAt = now
                                 val id = ProductQrPayload.parseProductId(value)
-                                val product = id?.let(repository::findById)
-                                if (product == null) message = "Código QR inválido o producto inexistente."
-                                else {
-                                    scanning = false
-                                    message = "Producto encontrado: ${product.name}"
-                                    onRecord(id)
-                                    onProduct(id)
+                                scope.launch {
+                                    val product = id?.let { findProduct(it) }
+                                    if (product == null) message = "Código QR inválido o producto inexistente."
+                                    else if (scanning) {
+                                        scanning = false
+                                        message = "Producto encontrado: ${product.name}"
+                                        onRecord(product.id)
+                                        onProduct(product.id)
+                                    }
                                 }
                             }
                             .addOnFailureListener { message = "No se pudo leer el código QR." }
@@ -148,7 +155,7 @@ fun QrScannerScreen(
     LaunchedEffect(torchEnabled, cameraController) { cameraController?.cameraControl?.enableTorch(torchEnabled) }
     Scaffold(
         topBar = { TopAppBar(title = { Text("Escanear código QR") }, navigationIcon = { TextButton(onClick = onBack) { Text("Volver") } }) },
-        bottomBar = { ClientBottomBar(currentRoute ?: Routes.QR_SCANNER, onHome, onCatalog, onMap, onRequests, onProfile) }
+        bottomBar = { ClientBottomBar(currentRoute ?: Routes.QR_SCANNER) }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(message, color = if (message.startsWith("Código") || message.startsWith("Permiso") || message.startsWith("No se")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)

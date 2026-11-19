@@ -24,7 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.evaluacion2.data.repository.LocalNotification
+import com.example.evaluacion2.data.local.LocalNotification
 import com.example.evaluacion2.ui.components.AdminBottomBar
 import com.example.evaluacion2.ui.components.ClientBottomBar
 import com.example.evaluacion2.ui.navigation.Routes
@@ -62,9 +62,9 @@ fun NotificationsScreen(
         },
         bottomBar = {
             if (isAdmin) {
-                AdminBottomBar(currentRoute, onHome, onProducts, onOpenCampaigns, onOpenRequests, onProfile)
+                AdminBottomBar(currentRoute)
             } else {
-                ClientBottomBar(currentRoute ?: Routes.NOTIFICATION_INBOX, onHome, onCatalog, onMap, onOpenRequests, onProfile)
+                ClientBottomBar(currentRoute ?: Routes.NOTIFICATION_INBOX)
             }
         }
     ) { padding ->

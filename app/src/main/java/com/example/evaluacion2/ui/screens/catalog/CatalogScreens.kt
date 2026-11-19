@@ -1,5 +1,9 @@
 package com.example.evaluacion2.ui.screens.catalog
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -17,16 +21,20 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.evaluacion2.domain.model.Product
 import com.example.evaluacion2.domain.model.QuoteRequest
+import com.example.evaluacion2.domain.model.RequestStatus
 import com.example.evaluacion2.ui.components.AdminBottomBar
 import com.example.evaluacion2.ui.components.ClientBottomBar
 import com.example.evaluacion2.ui.components.DatePickerField
 import com.example.evaluacion2.ui.components.ProductImage
+import com.example.evaluacion2.ui.components.StateContent
 import com.example.evaluacion2.ui.navigation.Routes
 import com.example.evaluacion2.viewmodel.CatalogViewModel
+import com.example.evaluacion2.viewmodel.DetailViewModel
 import com.example.evaluacion2.viewmodel.FavoritesViewModel
 import com.example.evaluacion2.viewmodel.QuoteViewModel
 import com.example.evaluacion2.viewmodel.RequestsViewModel
@@ -49,33 +57,34 @@ fun CatalogScreen(
     onProfile: () -> Unit = {},
     onManageProduct: (Int) -> Unit = {}
 ) {
-    val products by vm.products.collectAsState()
+    val state by vm.products.collectAsState()
     LaunchedEffect(Unit) { vm.refresh() }
     var search by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("Todas") }
+    var category by remember { mutableStateOf("Todos") }
     var selectedProduct by remember { mutableStateOf<Product?>(null) }
-    val filtered = products.filter {
-        (category == "Todas" || it.category.contains(category, true) ||
-            (category == "Interiores" && it.category.contains("Decor", true))) && it.name.contains(search, true)
-    }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Catálogo") }, navigationIcon = { TextButton(onClick = onBack) { Text("Volver") } }) },
         bottomBar = {
-            if (isAdmin) AdminBottomBar(currentRoute, onHome, {}, {}, onRequests, onProfile)
-            else ClientBottomBar(currentRoute ?: Routes.CATALOG, onHome, {}, onMap, onRequests, onProfile)
+            if (isAdmin) AdminBottomBar(currentRoute)
+            else ClientBottomBar(currentRoute ?: Routes.CATALOG)
         }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
             OutlinedTextField(search, { search = it }, Modifier.fillMaxWidth(), label = { Text("Buscar diseños...") }, singleLine = true)
             LazyRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(listOf("Todos", "Matrimonios", "Festivales", "Interiores")) { item ->
-                    FilterChip(selected = category == item || (item == "Todos" && category == "Todas"), onClick = { category = if (item == "Todos") "Todas" else item }, label = { Text(item) })
+                items(CatalogViewModel.CATEGORIES) { item ->
+                    FilterChip(selected = category == item, onClick = { category = item }, label = { Text(item) })
                 }
             }
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
-                items(filtered, key = { it.id }) { product -> ProductCard(product, onClick = { if (isAdmin) selectedProduct = product else onProduct(product.id) }) }
-                if (filtered.isEmpty()) item { Text("No hay productos que coincidan con la búsqueda.", Modifier.padding(16.dp)) }
+            StateContent(state, onRetry = vm::refresh) { products ->
+                val filtered = CatalogViewModel.filter(products, search, category)
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
+                    items(filtered, key = { it.id }) { product ->
+                        ProductCard(product, onClick = { if (isAdmin) selectedProduct = product else onProduct(product.id) }, modifier = Modifier.animateItem())
+                    }
+                    if (filtered.isEmpty()) item { Text("No hay productos que coincidan con la búsqueda.", Modifier.padding(16.dp)) }
+                }
             }
         }
     }
@@ -86,42 +95,51 @@ fun CatalogScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProductDetailScreen(product: Product?, isFavorite: Boolean, onToggleFavorite: () -> Unit, onQuote: () -> Unit, onBack: () -> Unit, isAdmin: Boolean = false) {
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text("Detalle del producto") },
-            navigationIcon = { TextButton(onClick = onBack) { Text("Volver") } }
-        )
-    }) { padding ->
-        if (product == null) Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { Text("Producto no encontrado") }
-        else Column(
-            Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            ProductImage(
-                product = product,
-                modifier = Modifier.fillMaxWidth().height(280.dp).clip(RoundedCornerShape(20.dp))
-            )
-            Text(product.name, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text("★★★★★  ·  5,0 (12 reseñas)", color = MaterialTheme.colorScheme.primary)
-            Text(product.category, style = MaterialTheme.typography.titleMedium)
-            Text(money(product.price), style = MaterialTheme.typography.titleLarge)
-            Text(if (product.available) "Disponible" else "No disponible", color = if (product.available) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
-            product.collection?.let { Text("Colección: $it") }
-            Text(product.description)
-            if (product.dimensions.isNotBlank()) Text("Dimensiones: ${product.dimensions}")
-            if (product.materials.isNotBlank()) Text("Materiales: ${product.materials}")
-            if (!isAdmin) {
-                OutlinedButton(onClick = onToggleFavorite) { Icon(if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, contentDescription = null); Text(if (isFavorite) " Quitar de favoritos" else " Agregar a favoritos") }
-                Button(onClick = onQuote) { Text(if (product.available) "Solicitar producto / cotización" else "Solicitar trabajo a pedido") }
+fun ProductDetailScreen(vm: DetailViewModel, onQuote: () -> Unit, onBack: () -> Unit, isAdmin: Boolean = false) {
+    val state by vm.product.collectAsState()
+    val isFavorite by vm.isFavorite.collectAsState()
+    val message by vm.message.collectAsState()
+    val snackbar = remember { SnackbarHostState() }
+    LaunchedEffect(Unit) { vm.refresh() }
+    LaunchedEffect(message) { message?.let { snackbar.showSnackbar(it); vm.clearMessage() } }
+    val heartScale by animateFloatAsState(if (isFavorite) 1.25f else 1f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy), label = "heart")
+    Scaffold(
+        topBar = { TopAppBar(title = { Text("Detalle del producto") }, navigationIcon = { TextButton(onClick = onBack) { Text("Volver") } }) },
+        snackbarHost = { SnackbarHost(snackbar) }
+    ) { padding ->
+        StateContent(state, onRetry = vm::refresh, modifier = Modifier.padding(padding)) { product ->
+            if (product == null) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Producto no encontrado") }
+            else Column(
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                ProductImage(
+                    product = product,
+                    modifier = Modifier.fillMaxWidth().height(280.dp).clip(RoundedCornerShape(20.dp))
+                )
+                Text(product.name, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Text(product.category, style = MaterialTheme.typography.titleMedium)
+                Text(money(product.price), style = MaterialTheme.typography.titleLarge)
+                Text(if (product.available) "Disponible" else "No disponible", color = if (product.available) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                product.collection?.let { Text("Colección: $it") }
+                Text(product.description)
+                if (product.dimensions.isNotBlank()) Text("Dimensiones: ${product.dimensions}")
+                if (product.materials.isNotBlank()) Text("Materiales: ${product.materials}")
+                if (!isAdmin) {
+                    OutlinedButton(onClick = vm::toggleFavorite) {
+                        Icon(if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, contentDescription = null, modifier = Modifier.scale(heartScale))
+                        Text(if (isFavorite) " Quitar de favoritos" else " Agregar a favoritos")
+                    }
+                    Button(onClick = onQuote) { Text(if (product.available) "Solicitar producto / cotización" else "Solicitar trabajo a pedido") }
+                }
             }
         }
     }
 }
 
 @Composable
-fun ProductCard(product: Product, onClick: () -> Unit) {
-    Card(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+fun ProductCard(product: Product, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Card(modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Column {
             ProductImage(product = product, modifier = Modifier.fillMaxWidth().height(190.dp))
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -138,14 +156,17 @@ fun ProductCard(product: Product, onClick: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FavoritesScreen(vm: FavoritesViewModel, onBack: () -> Unit, onProduct: (Int) -> Unit, currentRoute: String? = null, onHome: () -> Unit = {}, onCatalog: () -> Unit = {}, onMap: () -> Unit = {}, onRequests: () -> Unit = {}, onProfile: () -> Unit = {}) {
-    val products by vm.products.collectAsState()
+    val state by vm.favoriteProducts.collectAsState()
+    LaunchedEffect(Unit) { vm.refresh() }
     Scaffold(
         topBar = { TopAppBar(title = { Text("Mis Favoritos") }, navigationIcon = { TextButton(onClick = onBack) { Text("Volver") } }) },
-        bottomBar = { ClientBottomBar(currentRoute ?: Routes.FAVORITES, onHome, onCatalog, onMap, onRequests, onProfile) }
+        bottomBar = { ClientBottomBar(currentRoute ?: Routes.FAVORITES) }
     ) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(products, key = { it.id }) { ProductCard(it) { onProduct(it.id) } }
-            if (products.isEmpty()) item { Text("Aún no tienes productos favoritos.") }
+        StateContent(state, onRetry = vm::refresh, modifier = Modifier.padding(padding)) { products ->
+            LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(products, key = { it.id }) { ProductCard(it, onClick = { onProduct(it.id) }, modifier = Modifier.animateItem()) }
+                if (products.isEmpty()) item { Text("Aún no tienes productos favoritos.") }
+            }
         }
     }
 }
@@ -160,7 +181,7 @@ fun QuoteFormScreen(vm: QuoteViewModel, onBack: () -> Unit, onSuccess: () -> Uni
     LaunchedEffect(state.successMessage) { if (state.successMessage != null) showSuccess = true }
     Scaffold(
         topBar = { TopAppBar(title = { Text("Solicitar cotización") }, navigationIcon = { TextButton(onClick = onBack) { Text("Volver") } }) },
-        bottomBar = { ClientBottomBar(currentRoute ?: Routes.QUOTE, onHome, onCatalog, onMap, onRequests, onProfile) },
+        bottomBar = { ClientBottomBar(currentRoute ?: Routes.QUOTE) },
         snackbarHost = { SnackbarHost(snackbar) }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(scrollState).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -199,53 +220,76 @@ private fun SelectField(label: String, selected: String, options: List<String>, 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RequestsScreen(vm: RequestsViewModel, isAdmin: Boolean, onBack: () -> Unit, onQuote: () -> Unit, currentRoute: String? = null, onHome: () -> Unit = {}, onCatalog: () -> Unit = {}, onMap: () -> Unit = {}, onProfile: () -> Unit = {}, onNotifications: () -> Unit = {}, ownerName: (Int) -> String = { "Cliente" }, productName: (Int) -> String = { "Producto #$it" }) {
-    val requests by vm.requests.collectAsState()
+fun RequestsScreen(vm: RequestsViewModel, isAdmin: Boolean, onBack: () -> Unit, onQuote: () -> Unit, currentRoute: String? = null, onHome: () -> Unit = {}, onCatalog: () -> Unit = {}, onMap: () -> Unit = {}, onProfile: () -> Unit = {}, onNotifications: () -> Unit = {}) {
+    val state by vm.requests.collectAsState()
+    val message by vm.message.collectAsState()
+    val snackbar = remember { SnackbarHostState() }
+    var requestFilter by remember { mutableStateOf("Todas") }
+    var toCancel by remember { mutableStateOf<QuoteRequest?>(null) }
+    LaunchedEffect(Unit) { vm.refresh() }
+    LaunchedEffect(message) { message?.let { snackbar.showSnackbar(it); vm.clearMessage() } }
     Scaffold(
         topBar = { TopAppBar(title = { Text(if (isAdmin) "Gestión de Solicitudes" else "Mis Solicitudes") }, navigationIcon = { TextButton(onClick = onBack) { Text("Volver") } }) },
-        bottomBar = { if (isAdmin) AdminBottomBar(currentRoute, onHome, {}, {}, onNotifications, onProfile) else ClientBottomBar(currentRoute ?: Routes.REQUESTS, onHome, onCatalog, onMap, onBack, onProfile) },
-        floatingActionButton = { if (!isAdmin) FloatingActionButton(onClick = onQuote) { Text("+") } }
+        bottomBar = { if (isAdmin) AdminBottomBar(currentRoute) else ClientBottomBar(currentRoute ?: Routes.REQUESTS) },
+        floatingActionButton = { if (!isAdmin) FloatingActionButton(onClick = onQuote) { Text("+") } },
+        snackbarHost = { SnackbarHost(snackbar) }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            var requestFilter by remember { mutableStateOf("Todas") }
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 16.dp)) {
-                items(listOf("Todas", "Exploración", "Pendiente", "Confirmada", "Entregada")) { status -> FilterChip(selected = requestFilter == status, onClick = { requestFilter = status }, label = { Text(status) }) }
+                items(RequestsViewModel.FILTERS) { status -> FilterChip(selected = requestFilter == status, onClick = { requestFilter = status }, label = { Text(status) }) }
             }
-            val visibleRequests = requests.filter { requestFilter == "Todas" || it.status.contains(requestFilter, true) }
-            LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(visibleRequests, key = { it.id }) { request ->
-                    RequestCard(
-                        request = request,
-                        isAdmin = isAdmin,
-                        updateStatus = vm::updateStatus,
-                        ownerName = if (isAdmin) ownerName(request.userId) else null,
-                        productType = request.productId?.let(productName)
-                    )
+            StateContent(state, onRetry = vm::refresh) { requests ->
+                val visibleRequests = RequestsViewModel.filter(requests, requestFilter)
+                LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(visibleRequests, key = { it.id }) { request ->
+                        RequestCard(
+                            request = request,
+                            isAdmin = isAdmin,
+                            onChangeStatus = { status -> vm.updateStatus(request, status) },
+                            onCancel = { toCancel = request },
+                            modifier = Modifier.animateItem()
+                        )
+                    }
+                    if (visibleRequests.isEmpty()) item { Text("No hay solicitudes registradas.") }
                 }
-                if (requests.isEmpty()) item { Text("No hay solicitudes registradas.") }
             }
         }
+    }
+    toCancel?.let { request ->
+        AlertDialog(
+            onDismissRequest = { toCancel = null },
+            title = { Text("Cancelar solicitud") },
+            text = { Text("¿Quieres cancelar la solicitud #${request.id}? Esta acción no se puede deshacer.") },
+            confirmButton = { TextButton(onClick = { vm.cancel(request); toCancel = null }) { Text("Cancelar solicitud") } },
+            dismissButton = { TextButton(onClick = { toCancel = null }) { Text("Volver") } }
+        )
     }
 }
 
 @Composable
-private fun RequestCard(request: QuoteRequest, isAdmin: Boolean, updateStatus: (Int, String) -> Unit, ownerName: String?, productType: String?) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+private fun RequestCard(request: QuoteRequest, isAdmin: Boolean, onChangeStatus: (RequestStatus) -> Unit, onCancel: () -> Unit, modifier: Modifier = Modifier) {
+    val status = request.requestStatus
+    Card(modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp).animateContentSize(), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text("Solicitud #${request.id} · ${request.eventType}", style = MaterialTheme.typography.titleMedium)
-            Text("Tipo de producto: ${productType ?: "No especificado"}")
-            ownerName?.let { Text("Cliente: $it") }
-            Text("Estado: ${request.status}")
-            Text("Creada: ${request.createdAt}")
+            Text("Producto: ${request.productName.ifBlank { "No especificado" }}")
+            if (isAdmin) Text("Cliente: ${request.userName.ifBlank { "Cliente #${request.userId}" }}")
+            Text("Dimensiones: ${request.dimensions} · Material: ${request.material}")
+            Text("Colores: ${request.colors} · Fecha requerida: ${request.requiredDate}")
+            AssistChip(onClick = {}, label = { Text(status.label) })
+            Text("Creada: ${request.createdAt}", style = MaterialTheme.typography.bodySmall)
             if (request.observations.isNotBlank()) Text(request.observations)
-            if (isAdmin) {
+            if (isAdmin && !status.isFinal) {
                 var expanded by remember { mutableStateOf(false) }
                 Box {
                     TextButton(onClick = { expanded = true }) { Text("Cambiar estado") }
                     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                        QuoteRequest.ALL_STATUSES.forEach { status -> DropdownMenuItem(text = { Text(status) }, onClick = { updateStatus(request.id, status); expanded = false }) }
+                        status.nextStatuses.forEach { next -> DropdownMenuItem(text = { Text(next.label) }, onClick = { onChangeStatus(next); expanded = false }) }
                     }
                 }
+            }
+            if (!isAdmin && status.canBeCancelledByClient) {
+                TextButton(onClick = onCancel) { Text("Cancelar solicitud", color = MaterialTheme.colorScheme.error) }
             }
         }
     }

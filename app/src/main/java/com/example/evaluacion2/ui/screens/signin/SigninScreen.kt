@@ -245,7 +245,6 @@ fun SignInScreen(
         )
 
 
-        TextButton(onClick = { }, modifier = Modifier.fillMaxWidth()) { Text("¿Olvidaste tu contraseña?") }
 
         uiState.generalError?.let {
 

@@ -50,18 +50,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.example.evaluacion2.data.repository.ProductRepository
 import com.example.evaluacion2.domain.model.Product
-import com.example.evaluacion2.domain.validation.ProductValidator
 import com.example.evaluacion2.domain.validation.ProductQrPayload
 import com.example.evaluacion2.ui.components.AdminBottomBar
 import com.example.evaluacion2.ui.components.ProductImage
 import com.example.evaluacion2.ui.components.ProductQrCode
+import com.example.evaluacion2.ui.components.StateContent
+import com.example.evaluacion2.viewmodel.AdminProductsViewModel
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material3.Icon
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.collectAsState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminProductsScreen(
-    repository: ProductRepository,
+    vm: AdminProductsViewModel,
     onBack: () -> Unit,
     currentRoute: String? = null,
     onHome: () -> Unit = {},
@@ -69,47 +75,58 @@ fun AdminProductsScreen(
     onRequests: () -> Unit = {},
     onProfile: () -> Unit = {}
 ) {
-    var products by remember { mutableStateOf(repository.getProducts()) }
+    val state by vm.products.collectAsState()
+    val formErrors by vm.formErrors.collectAsState()
+    val saved by vm.saved.collectAsState()
+    val message by vm.message.collectAsState()
+    val snackbar = remember { SnackbarHostState() }
     var query by remember { mutableStateOf("") }
     var filter by remember { mutableStateOf("Todos") }
-    val visibleProducts = products.filter { it.name.contains(query, true) && (filter == "Todos" || (filter == "Activos") == it.available) }
     var editing by remember { mutableStateOf<Product?>(null) }
     var creating by remember { mutableStateOf(false) }
     var imageCameraOpen by remember { mutableStateOf(false) }
     var pendingImage by remember { mutableStateOf<String?>(null) }
     var pickImage by remember { mutableStateOf(false) }
     var qrProduct by remember { mutableStateOf<Product?>(null) }
-    fun refresh() { products = repository.getProducts() }
+    var toDelete by remember { mutableStateOf<Product?>(null) }
+    LaunchedEffect(Unit) { vm.refresh() }
+    LaunchedEffect(message) { message?.let { snackbar.showSnackbar(it); vm.clearMessage() } }
+    LaunchedEffect(saved) { if (saved) { creating = false; pendingImage = null; vm.formHandled() } }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Gestión de productos") }, navigationIcon = { TextButton(onClick = onBack) { Text("Volver") } }) },
-        bottomBar = { AdminBottomBar(currentRoute, onHome, {}, onCampaigns, onRequests, onProfile) },
-        floatingActionButton = { Button(onClick = { editing = null; creating = true }) { Text("+ Crear nuevo producto") } }
+        bottomBar = { AdminBottomBar(currentRoute) },
+        floatingActionButton = { Button(onClick = { editing = null; vm.formHandled(); creating = true }) { Text("+ Crear nuevo producto") } },
+        snackbarHost = { SnackbarHost(snackbar) }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp), label = { Text("Buscar productos...") }, singleLine = true)
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Todos", "Activos", "Inactivos").forEach { value -> FilterChip(selected = filter == value, onClick = { filter = value }, label = { Text(value) }) }
+                AdminProductsViewModel.FILTERS.forEach { value -> FilterChip(selected = filter == value, onClick = { filter = value }, label = { Text(value) }) }
             }
-            LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(visibleProducts, key = { it.id }) { product ->
-                    Card(Modifier.fillMaxWidth()) {
-                        Column {
-                            ProductImage(product = product, modifier = Modifier.fillMaxWidth().height(170.dp))
-                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(product.name, style = MaterialTheme.typography.titleMedium)
-                                Text("${product.category} · $${product.price}")
-                                Text(if (product.available) "Disponible" else "No disponible")
-                                Row {
-                                    TextButton(onClick = { repository.updateAvailable(product.id, !product.available); refresh() }) { Text(if (product.available) "Desactivar" else "Activar") }
-                                    TextButton(onClick = { editing = product; creating = true }) { Text("Editar") }
-                                    TextButton(onClick = { qrProduct = product }) { Text("Ver QR") }
+            StateContent(state, onRetry = vm::refresh) { products ->
+                val visibleProducts = AdminProductsViewModel.filter(products, query, filter)
+                LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(visibleProducts, key = { it.id }) { product ->
+                        Card(Modifier.fillMaxWidth().animateItem()) {
+                            Column {
+                                ProductImage(product = product, modifier = Modifier.fillMaxWidth().height(170.dp))
+                                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(product.name, style = MaterialTheme.typography.titleMedium)
+                                    Text("${product.category} · $${product.price}")
+                                    Text(if (product.available) "Disponible" else "No disponible", color = if (product.available) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                                    Row {
+                                        TextButton(onClick = { vm.toggleAvailable(product) }) { Text(if (product.available) "Desactivar" else "Activar") }
+                                        TextButton(onClick = { editing = product; vm.formHandled(); creating = true }) { Text("Editar") }
+                                        TextButton(onClick = { qrProduct = product }) { Text("QR") }
+                                        TextButton(onClick = { toDelete = product }) { Text("Eliminar", color = MaterialTheme.colorScheme.error) }
+                                    }
                                 }
                             }
                         }
                     }
+                    if (visibleProducts.isEmpty()) item { Text("Aún no hay productos para este filtro.") }
                 }
-                if (visibleProducts.isEmpty()) item { Text("Aún no hay productos para este filtro.") }
             }
         }
     }
@@ -118,11 +135,9 @@ fun AdminProductsScreen(
     if (creating) ProductEditorDialog(
         initial = editing,
         imageUri = pendingImage ?: editing?.imageUri,
-        onDismiss = { creating = false; pendingImage = null },
-        onSave = { product ->
-            val result = repository.save(product.copy(imageUri = pendingImage ?: product.imageUri))
-            if (result != -1L) { creating = false; pendingImage = null; refresh() }
-        },
+        errors = formErrors,
+        onDismiss = { creating = false; pendingImage = null; vm.formHandled() },
+        onSave = { product -> vm.save(product.copy(imageUri = pendingImage ?: product.imageUri)) },
         onCamera = { imageCameraOpen = true },
         onPickImage = { pickImage = true }
     )
@@ -133,6 +148,15 @@ fun AdminProductsScreen(
     )
     qrProduct?.let { product ->
         ProductQrDialog(product = product, onDismiss = { qrProduct = null })
+    }
+    toDelete?.let { product ->
+        AlertDialog(
+            onDismissRequest = { toDelete = null },
+            title = { Text("Eliminar producto") },
+            text = { Text("¿Eliminar \"${product.name}\" del catálogo? Esta acción no se puede deshacer.") },
+            confirmButton = { TextButton(onClick = { vm.delete(product); toDelete = null }) { Text("Eliminar", color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { toDelete = null }) { Text("Cancelar") } }
+        )
     }
 }
 
@@ -161,7 +185,7 @@ private fun ProductQrDialog(product: Product, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun ProductEditorDialog(initial: Product?, imageUri: String?, onDismiss: () -> Unit, onSave: (Product) -> Unit, onCamera: () -> Unit, onPickImage: () -> Unit) {
+private fun ProductEditorDialog(initial: Product?, imageUri: String?, errors: Map<String, String>, onDismiss: () -> Unit, onSave: (Product) -> Unit, onCamera: () -> Unit, onPickImage: () -> Unit) {
     var name by remember(initial) { mutableStateOf(initial?.name.orEmpty()) }
     var description by remember(initial) { mutableStateOf(initial?.description.orEmpty()) }
     var category by remember(initial) { mutableStateOf(initial?.category.orEmpty()) }
@@ -170,12 +194,11 @@ private fun ProductEditorDialog(initial: Product?, imageUri: String?, onDismiss:
     var materials by remember(initial) { mutableStateOf(initial?.materials.orEmpty()) }
     var collection by remember(initial) { mutableStateOf(initial?.collection.orEmpty()) }
     var available by remember(initial) { mutableStateOf(initial?.available ?: true) }
-    var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(onDismissRequest = onDismiss, title = { Text(if (initial == null) "Nuevo producto" else "Editar producto") }, text = {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            item { OutlinedTextField(name, { name = it }, label = { Text("Nombre") }, singleLine = true) }
-            item { OutlinedTextField(category, { category = it }, label = { Text("Categoría") }, singleLine = true) }
-            item { OutlinedTextField(price, { price = it.filter(Char::isDigit) }, label = { Text("Precio") }, singleLine = true) }
+            item { ValidatedField(name, { name = it }, "Nombre", errors["name"]) }
+            item { ValidatedField(category, { category = it }, "Categoría", errors["category"]) }
+            item { ValidatedField(price, { price = it.filter(Char::isDigit) }, "Precio", errors["price"]) }
             item { OutlinedTextField(description, { description = it }, label = { Text("Descripción") }, minLines = 2) }
             item { OutlinedTextField(dimensions, { dimensions = it }, label = { Text("Dimensiones") }, singleLine = true) }
             item { OutlinedTextField(materials, { materials = it }, label = { Text("Materiales") }, singleLine = true) }
@@ -183,14 +206,24 @@ private fun ProductEditorDialog(initial: Product?, imageUri: String?, onDismiss:
             item { Row { Checkbox(available, { available = it }); Text("Disponible", Modifier.padding(top = 12.dp)) } }
             item { Row { TextButton(onClick = onCamera) { Text("Tomar foto") }; TextButton(onClick = onPickImage) { Text("Elegir imagen") } } }
             item { Text(if (imageUri != null) "Imagen seleccionada" else "Sin imagen") }
-            item { error?.let { Text(it, color = MaterialTheme.colorScheme.error) } }
         }
     }, confirmButton = { TextButton(onClick = {
-        val candidate = Product(id = initial?.id ?: 0, name = name.trim(), description = description.trim(), dimensions = dimensions.trim(), materials = materials.trim(), category = category.trim(), price = price.toIntOrNull() ?: 0, available = available, imageUri = imageUri, collection = collection.trim().ifBlank { null })
-        val errors = ProductValidator.validate(candidate)
-        error = errors.values.firstOrNull()
-        if (errors.isEmpty()) onSave(candidate)
+        onSave(Product(id = initial?.id ?: 0, name = name.trim(), description = description.trim(), dimensions = dimensions.trim(), materials = materials.trim(), category = category.trim(), price = price.toIntOrNull() ?: -1, available = available, imageUri = imageUri, collection = collection.trim().ifBlank { null }))
     }) { Text("Guardar") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } })
+}
+
+/** Campo de texto con ícono y mensaje de error cuando la validación falla. */
+@Composable
+private fun ValidatedField(value: String, onValueChange: (String) -> Unit, label: String, error: String?) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        singleLine = true,
+        isError = error != null,
+        trailingIcon = { if (error != null) Icon(Icons.Default.Error, contentDescription = "Error", tint = MaterialTheme.colorScheme.error) },
+        supportingText = { error?.let { Text(it) } }
+    )
 }
 
 @Composable

@@ -2,11 +2,16 @@ package com.example.evaluacion2.ui.navigation
 
 import androidx.activity.compose.BackHandler
 import androidx.camera.core.ExperimentalGetImage
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
@@ -18,19 +23,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.evaluacion2.data.local.AppDatabaseHelper
+import com.example.evaluacion2.LouArayaApp
 import com.example.evaluacion2.data.local.SessionManager
-import com.example.evaluacion2.data.repository.CampaignRepository
-import com.example.evaluacion2.data.repository.EventRepository
-import com.example.evaluacion2.data.repository.FavoriteRepository
-import com.example.evaluacion2.data.repository.NotificationRepository
-import com.example.evaluacion2.data.repository.ProductRepository
-import com.example.evaluacion2.data.repository.QrScanRepository
-import com.example.evaluacion2.data.repository.RequestRepository
-import com.example.evaluacion2.data.repository.UserPreferencesRepository
-import com.example.evaluacion2.data.repository.UserRepository
-import com.example.evaluacion2.domain.model.User
-import com.example.evaluacion2.notifications.LocalNotificationHelper
+import com.example.evaluacion2.domain.model.UserRole
 import com.example.evaluacion2.ui.screens.admin.AdminProductsScreen
 import com.example.evaluacion2.ui.screens.admin.CampaignsScreen
 import com.example.evaluacion2.ui.screens.catalog.CatalogScreen
@@ -47,187 +42,210 @@ import com.example.evaluacion2.ui.screens.profile.ProfileScreen
 import com.example.evaluacion2.ui.screens.qr.QrScannerScreen
 import com.example.evaluacion2.ui.screens.signin.SignInScreen
 import com.example.evaluacion2.ui.screens.signup.SignUpScreen
+import com.example.evaluacion2.viewmodel.AdminProductsViewModel
+import com.example.evaluacion2.viewmodel.CampaignsViewModel
 import com.example.evaluacion2.viewmodel.CatalogViewModel
-import com.example.evaluacion2.viewmodel.DashboardFavoritesViewModel
+import com.example.evaluacion2.viewmodel.DashboardViewModel
 import com.example.evaluacion2.viewmodel.DetailViewModel
 import com.example.evaluacion2.viewmodel.FavoritesViewModel
+import com.example.evaluacion2.viewmodel.ProfileViewModel
 import com.example.evaluacion2.viewmodel.QuoteViewModel
 import com.example.evaluacion2.viewmodel.RequestsViewModel
 import com.example.evaluacion2.viewmodel.SignInViewModel
-import com.example.evaluacion2.viewmodel.SignInViewModelFactory
 import com.example.evaluacion2.viewmodel.SignUpViewModel
-import com.example.evaluacion2.viewmodel.SignUpViewModelFactory
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+private const val TRANSITION_MS = 300
+
 @Composable
 fun AppNavigation() {
-    val context = LocalContext.current.applicationContext
+    val container = (LocalContext.current.applicationContext as LouArayaApp).container
+    val session = container.sessionManager
     val navController = rememberNavController()
-    val databaseHelper = remember { AppDatabaseHelper(context) }
-    val userRepository = remember { UserRepository(databaseHelper) }
-    val productRepository = remember { ProductRepository(databaseHelper) }
-    val favoriteRepository = remember { FavoriteRepository(databaseHelper) }
-    val requestRepository = remember { RequestRepository(databaseHelper) }
-    val eventRepository = remember { EventRepository(databaseHelper) }
-    val campaignRepository = remember { CampaignRepository(databaseHelper) }
-    val preferencesRepository = remember { UserPreferencesRepository(databaseHelper) }
-    val notificationRepository = remember { NotificationRepository(databaseHelper) }
-    LaunchedEffect(Unit) {
-        LocalNotificationHelper.createChannel(context)
-        if (!notificationRepository.hasAny()) {
-            listOf(
-                Triple("Campañas", "Nueva campaña disponible", "Descubre nuestra colección Bodas de Ensueño."),
-                Triple("Solicitudes", "Tu solicitud fue confirmada", "#SOL-0013 – Arco de ceremonia personalizado ha sido confirmado."),
-                Triple("Eventos", "Feria este fin de semana", "Te esperamos en el Parque Bicentenario, Vitacura."),
-                Triple("Campañas", "Nuevo producto en catálogo", "Conoce nuestros nuevos maceteros colgantes."),
-                Triple("Solicitudes", "Recordatorio de solicitud", "Tu solicitud sigue pendiente de revisión.")
-            ).forEach { (category, title, description) -> notificationRepository.add(null, category, title, description, "12 Abr 2025") }
-        }
-    }
-    val qrScanRepository = remember { QrScanRepository(databaseHelper) }
-    val sessionManager = remember { SessionManager(context) }
-    var sessionRevision by remember { mutableStateOf(0) }
+
+    var sessionRevision by remember { mutableIntStateOf(0) }
     val initialRoute = remember {
-        when {
-            !sessionManager.isLoggedIn() -> Routes.WELCOME
-            sessionManager.getUserRole() == User.ROLE_ADMIN -> Routes.DASHBOARD_ADMIN
-            else -> Routes.DASHBOARD_CLIENT
-        }
+        if (!session.isLoggedIn()) Routes.WELCOME else homeRouteFor(UserRole.from(session.getUserRole()))
     }
-    val currentName = remember(sessionRevision) { sessionManager.getUserName().orEmpty() }
-    val currentRole = remember(sessionRevision) { sessionManager.getUserRole() ?: User.ROLE_CLIENT }
-    val currentUserId = remember(sessionRevision) { sessionManager.getUserId() }
+    val currentName = remember(sessionRevision) { session.getUserName().orEmpty() }
+    val currentRole = remember(sessionRevision) { UserRole.from(session.getUserRole()) }
+    val currentUserId = remember(sessionRevision) { session.getUserId() }
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
-    val authenticated = sessionManager.isLoggedIn()
-    fun dashboardFor(role: String) = if (role == User.ROLE_ADMIN) Routes.DASHBOARD_ADMIN else Routes.DASHBOARD_CLIENT
-    fun navigateToRoleDashboard(role: String) {
+    val authenticated = session.isLoggedIn()
+    val isAdmin = currentRole.canManageCatalog
+
+    fun navigateToHome(role: UserRole) {
         sessionRevision++
-        navController.navigate(dashboardFor(role)) {
+        navController.navigate(homeRouteFor(role)) {
             popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
             launchSingleTop = true
         }
     }
+
     fun logout() {
-        sessionManager.clearSession()
+        session.clearSession()
         sessionRevision++
         navController.navigate(Routes.WELCOME) {
             popUpTo(navController.graph.id) { inclusive = true }
             launchSingleTop = true
         }
     }
-    BackHandler(enabled = authenticated && currentRoute == dashboardFor(currentRole)) { logout() }
-    LaunchedEffect(currentRoute, authenticated, currentUserId) {
-        val needsSession = currentRoute == Routes.PROFILE || currentRoute == Routes.NOTIFICATIONS || currentRoute == Routes.NOTIFICATION_INBOX || currentRoute == Routes.CAMPAIGNS || currentRoute == Routes.FAVORITES || currentRoute == Routes.REQUESTS ||
-            currentRoute?.startsWith("${Routes.QUOTE}?") == true || currentRoute?.startsWith("${Routes.PRODUCT_DETAIL}/") == true
-        if (needsSession && (!authenticated || currentUserId == SessionManager.NO_USER_ID)) {
-            sessionManager.clearSession()
-            sessionRevision++
-            navController.navigate(Routes.WELCOME) { popUpTo(navController.graph.id) { inclusive = true }; launchSingleTop = true }
+
+    fun go(route: String) = navController.navigate(route) { launchSingleTop = true }
+    val home = { go(homeRouteFor(currentRole)) }
+
+    /** Navegación de pestañas: vuelve al inicio del rol y abre la pestaña elegida sin apilar pantallas. */
+    fun goTab(route: String) {
+        val homeRoute = homeRouteFor(currentRole)
+        navController.navigate(route) {
+            popUpTo(homeRoute) { inclusive = false }
+            launchSingleTop = true
         }
     }
+    val navigator = AppNavigator(navigate = ::goTab, home = home)
 
-    NavHost(navController = navController, startDestination = initialRoute) {
+    BackHandler(enabled = authenticated && currentRoute == homeRouteFor(currentRole)) { logout() }
+
+    // Si una pantalla privada se abre sin sesión, se vuelve al inicio.
+    LaunchedEffect(currentRoute, authenticated, currentUserId) {
+        val isPublic = currentRoute == null || currentRoute in setOf(Routes.WELCOME, Routes.SIGN_IN, Routes.SIGN_UP)
+        if (!isPublic && (!authenticated || currentUserId == SessionManager.NO_USER_ID)) logout()
+    }
+
+    CompositionLocalProvider(LocalAppNavigator provides navigator) {
+    NavHost(
+        navController = navController,
+        startDestination = initialRoute,
+        enterTransition = { fadeIn(tween(TRANSITION_MS)) + slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(TRANSITION_MS)) },
+        exitTransition = { fadeOut(tween(TRANSITION_MS)) },
+        popEnterTransition = { fadeIn(tween(TRANSITION_MS)) },
+        popExitTransition = { fadeOut(tween(TRANSITION_MS)) + slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(TRANSITION_MS)) }
+    ) {
         composable(Routes.WELCOME) {
-            LoginScreen(onLoginClick = { navController.navigate(Routes.SIGN_IN) }, onCreateAccountClick = { navController.navigate(Routes.SIGN_UP) })
+            LoginScreen(onLoginClick = { go(Routes.SIGN_IN) }, onCreateAccountClick = { go(Routes.SIGN_UP) })
         }
         composable(Routes.SIGN_IN) {
-            val vm: SignInViewModel = viewModel(factory = SignInViewModelFactory(userRepository, sessionManager))
-            SignInScreen(vm, onLoginSuccess = ::navigateToRoleDashboard, onBackClick = { navController.popBackStack() })
+            val vm: SignInViewModel = viewModel { SignInViewModel(container.userRepository, session) }
+            SignInScreen(vm, onLoginSuccess = { role -> navigateToHome(UserRole.from(role)) }, onBackClick = { navController.popBackStack() })
         }
         composable(Routes.SIGN_UP) {
-            val vm: SignUpViewModel = viewModel(factory = SignUpViewModelFactory(userRepository, sessionManager))
-            SignUpScreen(vm, onRegisterSuccess = { navigateToRoleDashboard(sessionManager.getUserRole() ?: User.ROLE_CLIENT) }, onBackClick = { navController.popBackStack() })
-        }
-        composable(Routes.DASHBOARD) {
-            DashboardScreen(currentName, emptyList(), {}, { navController.navigate(Routes.FAVORITES) }, { navController.navigate(Routes.CATALOG) }, { navController.navigate(Routes.MAP) }, { navController.navigate(Routes.QR_SCANNER) }, { navController.navigate(Routes.REQUESTS) }, { navController.navigate(Routes.PROFILE) }, { navController.navigate(Routes.NOTIFICATION_INBOX) }, ::logout, isAdmin = true)
+            val vm: SignUpViewModel = viewModel { SignUpViewModel(container.userRepository, session) }
+            SignUpScreen(vm, onRegisterSuccess = { navigateToHome(UserRole.from(session.getUserRole())) }, onBackClick = { navController.popBackStack() })
         }
         composable(Routes.DASHBOARD_CLIENT) {
-            val vm: DashboardFavoritesViewModel = viewModel(key = "home-favorites-$currentUserId") { DashboardFavoritesViewModel(currentUserId, favoriteRepository, productRepository) }
-            val favoriteProducts by vm.favorites.collectAsState()
-            val featuredProducts = remember(favoriteProducts, currentRoute) {
-                (favoriteProducts + productRepository.getProducts().filter { it.available })
-                    .distinctBy { it.id }
-                    .take(4)
+            val vm: DashboardViewModel = viewModel(key = "dashboard-$currentUserId") {
+                DashboardViewModel(currentUserId, container.favoriteRepository, container.productRepository)
             }
-            LaunchedEffect(currentRoute) { vm.refresh() }
-            DashboardScreen(currentName, featuredProducts, { navController.navigate("${Routes.PRODUCT_DETAIL}/$it") }, { navController.navigate(Routes.FAVORITES) }, { navController.navigate(Routes.CATALOG) }, { navController.navigate(Routes.MAP) }, { navController.navigate(Routes.QR_SCANNER) }, { navController.navigate(Routes.REQUESTS) }, { navController.navigate(Routes.PROFILE) }, { navController.navigate(Routes.NOTIFICATION_INBOX) }, ::logout)
-        }
-        composable(Routes.NOTIFICATION_INBOX) {
-            val notifications = remember(currentUserId) { notificationRepository.getForUser(currentUserId) }
-            NotificationsScreen(
-                notifications = notifications,
-                isAdmin = currentRole == User.ROLE_ADMIN,
-                onBack = navController::popBackStack,
-                onOpenRequests = { navController.navigate(Routes.REQUESTS) },
-                onOpenEvents = { navController.navigate(Routes.MAP) },
-                onRead = { notificationRepository.markRead(it, currentUserId) },
-                onOpenCampaigns = { navController.navigate(Routes.CAMPAIGNS) },
-                onHome = { navController.navigate(dashboardFor(currentRole)) },
-                onCatalog = { navController.navigate(Routes.CATALOG) },
-                onMap = { navController.navigate(Routes.MAP) },
-                onProfile = { navController.navigate(Routes.PROFILE) },
-                onProducts = { navController.navigate(Routes.ADMIN_PRODUCTS) },
-                currentRoute = currentRoute
+            val featured by vm.featured.collectAsState()
+            LaunchedEffect(Unit) { vm.refresh() }
+            DashboardScreen(
+                currentName, featured, { go("${Routes.PRODUCT_DETAIL}/$it") }, { go(Routes.FAVORITES) }, { go(Routes.CATALOG) },
+                { go(Routes.MAP) }, { go(Routes.QR_SCANNER) }, { go(Routes.REQUESTS) }, { go(Routes.PROFILE) },
+                { go(Routes.NOTIFICATION_INBOX) }, ::logout
             )
         }
         composable(Routes.DASHBOARD_ADMIN) {
-            AdminDashboardScreen(currentName, { navController.navigate(Routes.ADMIN_PRODUCTS) }, { navController.navigate(Routes.CAMPAIGNS) }, { navController.navigate(Routes.REQUESTS) }, ::logout, { navController.navigate(Routes.PROFILE) }, { navController.navigate(Routes.NOTIFICATION_INBOX) })
+            AdminDashboardScreen(currentName, { go(Routes.ADMIN_PRODUCTS) }, { go(Routes.CAMPAIGNS) }, { go(Routes.REQUESTS) }, ::logout, { go(Routes.PROFILE) }, { go(Routes.NOTIFICATION_INBOX) })
+        }
+        composable(Routes.NOTIFICATION_INBOX) {
+            val notifications = remember(currentUserId) { container.notificationRepository.getForUser(currentUserId) }
+            NotificationsScreen(
+                notifications = notifications,
+                isAdmin = isAdmin,
+                onBack = navController::popBackStack,
+                onOpenRequests = { go(Routes.REQUESTS) },
+                onOpenEvents = { go(Routes.MAP) },
+                onRead = { container.notificationRepository.markRead(it, currentUserId) },
+                onOpenCampaigns = { go(Routes.CAMPAIGNS) },
+                onHome = home,
+                onCatalog = { go(Routes.CATALOG) },
+                onMap = { go(Routes.MAP) },
+                onProfile = { go(Routes.PROFILE) },
+                onProducts = { go(Routes.ADMIN_PRODUCTS) },
+                currentRoute = currentRoute
+            )
         }
         composable(Routes.CATALOG) {
-            val vm: CatalogViewModel = viewModel { CatalogViewModel(productRepository) }
-            CatalogScreen(vm, { navController.popBackStack() }, { navController.navigate("${Routes.PRODUCT_DETAIL}/$it") }, currentRole == User.ROLE_ADMIN, currentRoute, { navController.navigate(dashboardFor(currentRole)) }, { navController.navigate(Routes.MAP) }, { navController.navigate(Routes.REQUESTS) }, { navController.navigate(Routes.PROFILE) }, { navController.navigate(Routes.ADMIN_PRODUCTS) })
+            val vm: CatalogViewModel = viewModel { CatalogViewModel(container.productRepository) }
+            CatalogScreen(vm, { navController.popBackStack() }, { go("${Routes.PRODUCT_DETAIL}/$it") }, isAdmin, currentRoute, home, { go(Routes.MAP) }, { go(Routes.REQUESTS) }, { go(Routes.PROFILE) }, { go(Routes.ADMIN_PRODUCTS) })
         }
         composable("${Routes.PRODUCT_DETAIL}/{productId}", arguments = listOf(navArgument("productId") { type = NavType.IntType })) { entry ->
             val id = entry.arguments?.getInt("productId") ?: 0
-            val product = remember(id) { productRepository.findById(id) }
-            val vm: DetailViewModel = viewModel(key = "detail-$currentUserId-$id") { DetailViewModel(currentUserId, id, favoriteRepository) }
-            val isFavorite by vm.isFavorite.collectAsState()
-            LaunchedEffect(Unit) { vm.refresh() }
-            ProductDetailScreen(product, isFavorite, vm::toggleFavorite, { navController.navigate("${Routes.QUOTE}?productId=$id") }, { navController.popBackStack() }, currentRole == User.ROLE_ADMIN)
+            val vm: DetailViewModel = viewModel(key = "detail-$currentUserId-$id") {
+                DetailViewModel(currentUserId, id, container.favoriteRepository, container.productRepository)
+            }
+            ProductDetailScreen(vm, onQuote = { go("${Routes.QUOTE}?productId=$id") }, onBack = { navController.popBackStack() }, isAdmin = isAdmin)
         }
         composable(Routes.FAVORITES) {
-            val vm: FavoritesViewModel = viewModel(key = "favorites-$currentUserId") { FavoritesViewModel(currentUserId, favoriteRepository, productRepository) }
-            LaunchedEffect(Unit) { vm.refresh() }
-            FavoritesScreen(vm, { navController.popBackStack() }, { navController.navigate("${Routes.PRODUCT_DETAIL}/$it") }, currentRoute, { navController.navigate(Routes.DASHBOARD_CLIENT) }, { navController.navigate(Routes.CATALOG) }, { navController.navigate(Routes.MAP) }, { navController.navigate(Routes.REQUESTS) }, { navController.navigate(Routes.PROFILE) })
+            val vm: FavoritesViewModel = viewModel(key = "favorites-$currentUserId") {
+                FavoritesViewModel(currentUserId, container.favoriteRepository, container.productRepository)
+            }
+            FavoritesScreen(vm, { navController.popBackStack() }, { go("${Routes.PRODUCT_DETAIL}/$it") }, currentRoute, home, { go(Routes.CATALOG) }, { go(Routes.MAP) }, { go(Routes.REQUESTS) }, { go(Routes.PROFILE) })
         }
         composable("${Routes.QUOTE}?productId={productId}", arguments = listOf(navArgument("productId") { type = NavType.IntType; defaultValue = 0 })) { entry ->
             val productId = entry.arguments?.getInt("productId")?.takeIf { it > 0 }
             val vm: QuoteViewModel = viewModel(key = "quote-${productId ?: 0}-${entry.id}") {
-                QuoteViewModel(currentUserId, productId, requestRepository, productRepository)
+                QuoteViewModel(currentUserId, currentName, productId, container.requestRepository, container.productRepository)
             }
-            QuoteFormScreen(vm, { navController.popBackStack() }, { navController.navigate(Routes.REQUESTS) { launchSingleTop = true } }, currentRoute, { navController.navigate(Routes.DASHBOARD_CLIENT) }, { navController.navigate(Routes.CATALOG) }, { navController.navigate(Routes.MAP) }, { navController.navigate(Routes.REQUESTS) }, { navController.navigate(Routes.PROFILE) })
+            QuoteFormScreen(vm, { navController.popBackStack() }, {
+                navController.navigate(Routes.REQUESTS) { popUpTo(Routes.REQUESTS) { inclusive = true }; launchSingleTop = true }
+            }, currentRoute, home, { go(Routes.CATALOG) }, { go(Routes.MAP) }, { go(Routes.REQUESTS) }, { go(Routes.PROFILE) })
         }
         composable(Routes.REQUESTS) {
-            val vm: RequestsViewModel = viewModel(key = "requests-$currentUserId-$currentRole") { RequestsViewModel(currentUserId, currentRole == User.ROLE_ADMIN, requestRepository) }
-            LaunchedEffect(currentRoute) { vm.refresh() }
-            RequestsScreen(vm, currentRole == User.ROLE_ADMIN, { navController.popBackStack() }, { navController.navigate(Routes.QUOTE) }, currentRoute, { navController.navigate(dashboardFor(currentRole)) }, { navController.navigate(Routes.CATALOG) }, { navController.navigate(Routes.MAP) }, { navController.navigate(Routes.PROFILE) }, { navController.navigate(Routes.NOTIFICATION_INBOX) }, requestRepository::getOwnerName) { productId ->
-                productRepository.findById(productId)?.name ?: "Producto no disponible"
+            val vm: RequestsViewModel = viewModel(key = "requests-$currentUserId-${currentRole.code}") {
+                RequestsViewModel(currentUserId, currentRole, container.requestRepository)
             }
+            RequestsScreen(vm, isAdmin, { navController.popBackStack() }, { go(Routes.QUOTE) }, currentRoute, home, { go(Routes.CATALOG) }, { go(Routes.MAP) }, { go(Routes.PROFILE) }, { go(Routes.NOTIFICATION_INBOX) })
         }
         composable(Routes.MAP) {
-            EventMapScreen(eventRepository.getAll(), navController::popBackStack, currentRoute, { navController.navigate(Routes.DASHBOARD_CLIENT) }, { navController.navigate(Routes.CATALOG) }, { navController.navigate(Routes.REQUESTS) }, { navController.navigate(Routes.PROFILE) })
+            val events = remember { container.eventRepository.getAll() }
+            EventMapScreen(events, navController::popBackStack, currentRoute, home, { go(Routes.CATALOG) }, { go(Routes.REQUESTS) }, { go(Routes.PROFILE) })
         }
         composable(Routes.QR_SCANNER) {
             @ExperimentalGetImage
             QrScannerScreen(
-                productRepository,
-                navController::popBackStack,
-                { navController.navigate("${Routes.PRODUCT_DETAIL}/$it") { launchSingleTop = true } },
-                { productId -> qrScanRepository.record(currentUserId.takeIf { it != SessionManager.NO_USER_ID }, productId, SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT).format(Date())) },
-                currentRoute,
-                { navController.navigate(Routes.DASHBOARD_CLIENT) },
-                { navController.navigate(Routes.CATALOG) },
-                { navController.navigate(Routes.MAP) },
-                { navController.navigate(Routes.REQUESTS) },
-                { navController.navigate(Routes.PROFILE) }
+                findProduct = { container.productRepository.findCached(it) },
+                onBack = navController::popBackStack,
+                onProduct = { go("${Routes.PRODUCT_DETAIL}/$it") },
+                onRecord = { productId ->
+                    container.qrScanRepository.record(
+                        currentUserId.takeIf { it != SessionManager.NO_USER_ID }, productId,
+                        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT).format(Date())
+                    )
+                },
+                currentRoute = currentRoute,
+                onHome = home,
+                onCatalog = { go(Routes.CATALOG) },
+                onMap = { go(Routes.MAP) },
+                onRequests = { go(Routes.REQUESTS) },
+                onProfile = { go(Routes.PROFILE) }
             )
         }
         composable(Routes.PROFILE) {
-            ProfileScreen(currentUserId, userRepository, preferencesRepository, sessionManager, navController::popBackStack, ::logout, { navController.navigate(dashboardFor(currentRole)) }, { navController.navigate(Routes.CATALOG) }, { navController.navigate(Routes.REQUESTS) }, { navController.navigate(Routes.NOTIFICATION_INBOX) }, currentRole == User.ROLE_ADMIN, { navController.navigate(Routes.ADMIN_PRODUCTS) }, { navController.navigate(Routes.CAMPAIGNS) })
+            val vm: ProfileViewModel = viewModel(key = "profile-$currentUserId") {
+                ProfileViewModel(currentUserId, container.userRepository, container.preferencesRepository, session)
+            }
+            ProfileScreen(
+                vm, isAdmin, navController::popBackStack, ::logout, home, { go(Routes.CATALOG) }, { go(Routes.REQUESTS) },
+                { go(Routes.NOTIFICATION_INBOX) }, { go(Routes.ADMIN_PRODUCTS) }, { go(Routes.CAMPAIGNS) }
+            )
         }
-        composable(Routes.ADMIN_PRODUCTS) { AdminProductsScreen(productRepository, navController::popBackStack, currentRoute, { navController.navigate(Routes.DASHBOARD_ADMIN) }, { navController.navigate(Routes.CAMPAIGNS) }, { navController.navigate(Routes.REQUESTS) }, { navController.navigate(Routes.PROFILE) }) }
-        composable(Routes.CAMPAIGNS) { CampaignsScreen(campaignRepository, isAdmin = currentRole == User.ROLE_ADMIN, onBack = navController::popBackStack, currentRoute, { navController.navigate(Routes.DASHBOARD_ADMIN) }, { navController.navigate(Routes.ADMIN_PRODUCTS) }, { navController.navigate(Routes.REQUESTS) }, { navController.navigate(Routes.PROFILE) }) }
+        composable(Routes.ADMIN_PRODUCTS) {
+            val vm: AdminProductsViewModel = viewModel { AdminProductsViewModel(container.productRepository) }
+            AdminProductsScreen(vm, navController::popBackStack, currentRoute, home, { go(Routes.CAMPAIGNS) }, { go(Routes.REQUESTS) }, { go(Routes.PROFILE) })
+        }
+        composable(Routes.CAMPAIGNS) {
+            val vm: CampaignsViewModel = viewModel(key = "campaigns-${currentRole.code}") { CampaignsViewModel(currentRole, container.campaignRepository) }
+            CampaignsScreen(vm, isAdmin = isAdmin, onBack = navController::popBackStack, currentRoute, home, { go(Routes.ADMIN_PRODUCTS) }, { go(Routes.REQUESTS) }, { go(Routes.PROFILE) }, { go(Routes.MAP) })
+        }
     }
+    }
+}
+
+/** Pantalla de inicio según el rol (polimorfismo de [UserRole]). */
+fun homeRouteFor(role: UserRole): String = when (role) {
+    UserRole.Admin -> Routes.DASHBOARD_ADMIN
+    UserRole.Client -> Routes.DASHBOARD_CLIENT
 }

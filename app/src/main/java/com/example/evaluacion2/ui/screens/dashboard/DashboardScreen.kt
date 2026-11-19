@@ -69,8 +69,8 @@ fun DashboardScreen(
 ) {
     var search by remember { mutableStateOf("") }
     Scaffold(bottomBar = {
-        if (isAdmin) AdminBottomBar(Routes.DASHBOARD_ADMIN, {}, onCatalogClick, onFavoritesClick, onRequestsClick, onProfileClick)
-        else ClientBottomBar(Routes.DASHBOARD_CLIENT, {}, onCatalogClick, onMapClick, onRequestsClick, onProfileClick)
+        if (isAdmin) AdminBottomBar(Routes.DASHBOARD_ADMIN)
+        else ClientBottomBar(Routes.DASHBOARD_CLIENT)
     }) { innerPadding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(innerPadding),

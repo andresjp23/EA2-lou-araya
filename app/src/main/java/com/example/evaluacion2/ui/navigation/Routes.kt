@@ -4,7 +4,6 @@ object Routes {
     const val WELCOME = "welcome"
     const val SIGN_IN = "signin"
     const val SIGN_UP = "signup"
-    const val DASHBOARD = "dashboard"
     const val DASHBOARD_CLIENT = "dashboard_client"
     const val DASHBOARD_ADMIN = "dashboard_admin"
 
@@ -17,7 +16,6 @@ object Routes {
     const val ADMIN_PRODUCTS = "admin_products"
     const val CAMPAIGNS = "campaigns"
     const val REQUESTS = "requests"
-    const val NOTIFICATIONS = "notifications"
     const val NOTIFICATION_INBOX = "notification_inbox"
     const val PROFILE = "profile"
 }

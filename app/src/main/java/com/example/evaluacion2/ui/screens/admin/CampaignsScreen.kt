@@ -30,51 +30,74 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.evaluacion2.data.repository.CampaignRepository
 import com.example.evaluacion2.domain.model.Campaign
-import com.example.evaluacion2.domain.validation.CampaignValidator
 import com.example.evaluacion2.viewmodel.CampaignsViewModel
 import com.example.evaluacion2.ui.components.AdminBottomBar
 import com.example.evaluacion2.ui.components.ClientBottomBar
 import com.example.evaluacion2.ui.components.DatePickerField
+import com.example.evaluacion2.ui.components.StateContent
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material3.Icon
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import com.example.evaluacion2.ui.navigation.Routes
 
 @Composable
-fun CampaignsScreen(repository: CampaignRepository, isAdmin: Boolean, onBack: () -> Unit, currentRoute: String? = null, onHome: () -> Unit = {}, onProducts: () -> Unit = {}, onRequests: () -> Unit = {}, onProfile: () -> Unit = {}, onMap: () -> Unit = {}) {
-    val vm: CampaignsViewModel = viewModel(key = "campaigns-$isAdmin") { CampaignsViewModel(repository) }
-    val campaigns by vm.campaigns.collectAsState()
+fun CampaignsScreen(vm: CampaignsViewModel, isAdmin: Boolean, onBack: () -> Unit, currentRoute: String? = null, onHome: () -> Unit = {}, onProducts: () -> Unit = {}, onRequests: () -> Unit = {}, onProfile: () -> Unit = {}, onMap: () -> Unit = {}) {
+    val state by vm.campaigns.collectAsState()
+    val formErrors by vm.formErrors.collectAsState()
+    val saved by vm.saved.collectAsState()
+    val message by vm.message.collectAsState()
+    val snackbar = remember { SnackbarHostState() }
     var editing by remember { mutableStateOf<Campaign?>(null) }
     var showForm by remember { mutableStateOf(false) }
-    LaunchedEffect(isAdmin) { vm.refresh(activeOnly = !isAdmin) }
+    var toDelete by remember { mutableStateOf<Campaign?>(null) }
+    LaunchedEffect(Unit) { vm.refresh() }
+    LaunchedEffect(message) { message?.let { snackbar.showSnackbar(it); vm.clearMessage() } }
+    LaunchedEffect(saved) { if (saved) { showForm = false; vm.formHandled() } }
 
     Scaffold(bottomBar = {
-        if (isAdmin) AdminBottomBar(currentRoute, onHome, onProducts, {}, onRequests, onProfile)
-        else ClientBottomBar(currentRoute ?: Routes.CAMPAIGNS, onHome, onProducts, onMap, onRequests, onProfile)
-    }) { inset ->
+        if (isAdmin) AdminBottomBar(currentRoute)
+        else ClientBottomBar(currentRoute ?: Routes.CAMPAIGNS)
+    }, snackbarHost = { SnackbarHost(snackbar) }) { inset ->
         Column(Modifier.fillMaxSize().padding(inset).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(if (isAdmin) "Colecciones y Campañas" else "Ofertas y colecciones", style = MaterialTheme.typography.headlineSmall)
                 TextButton(onClick = onBack) { Text("Volver") }
             }
-            if (isAdmin) Button(onClick = { editing = null; showForm = true }, modifier = Modifier.fillMaxWidth()) { Text("+ Nueva campaña") }
-            if (isAdmin) Text("Colecciones · Campañas", style = MaterialTheme.typography.labelLarge)
-            if (campaigns.isEmpty() && !isAdmin) Text("No hay campañas disponibles.", style = MaterialTheme.typography.bodyLarge)
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(campaigns, key = { it.id }) { campaign ->
-                    CampaignCard(campaign, isAdmin, onEdit = { editing = campaign; showForm = true }, onToggle = { vm.setActive(campaign, !campaign.active) })
+            if (isAdmin) Button(onClick = { editing = null; vm.formHandled(); showForm = true }, modifier = Modifier.fillMaxWidth()) { Text("+ Nueva campaña") }
+            StateContent(state, onRetry = vm::refresh) { campaigns ->
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(campaigns, key = { it.id }) { campaign ->
+                        CampaignCard(
+                            campaign, isAdmin,
+                            onEdit = { editing = campaign; vm.formHandled(); showForm = true },
+                            onToggle = { vm.setActive(campaign, !campaign.active) },
+                            onDelete = { toDelete = campaign },
+                            modifier = Modifier.animateItem()
+                        )
+                    }
+                    if (campaigns.isEmpty()) item { Text("No hay campañas disponibles.", style = MaterialTheme.typography.bodyLarge) }
                 }
             }
         }
     }
-    if (showForm && isAdmin) CampaignEditorDialog(editing, onDismiss = { showForm = false }) { campaign ->
-        if (vm.save(campaign)) showForm = false
+    if (showForm && isAdmin) CampaignEditorDialog(editing, formErrors, onDismiss = { showForm = false; vm.formHandled() }, onSave = vm::save)
+    toDelete?.let { campaign ->
+        AlertDialog(
+            onDismissRequest = { toDelete = null },
+            title = { Text("Eliminar campaña") },
+            text = { Text("¿Eliminar \"${campaign.title}\"?") },
+            confirmButton = { TextButton(onClick = { vm.delete(campaign); toDelete = null }) { Text("Eliminar", color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { toDelete = null }) { Text("Cancelar") } }
+        )
     }
 }
 
 @Composable
-private fun CampaignCard(campaign: Campaign, isAdmin: Boolean, onEdit: () -> Unit, onToggle: () -> Unit) {
-    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+private fun CampaignCard(campaign: Campaign, isAdmin: Boolean, onEdit: () -> Unit, onToggle: () -> Unit, onDelete: () -> Unit, modifier: Modifier = Modifier) {
+    Card(modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(campaign.title, style = MaterialTheme.typography.titleLarge)
             if (campaign.description.isNotBlank()) Text(campaign.description, style = MaterialTheme.typography.bodyMedium)
@@ -83,23 +106,25 @@ private fun CampaignCard(campaign: Campaign, isAdmin: Boolean, onEdit: () -> Uni
             if (isAdmin) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = onEdit) { Text("Editar") }
                 OutlinedButton(onClick = onToggle, modifier = Modifier.semantics { contentDescription = if (campaign.active) "Desactivar ${campaign.title}" else "Activar ${campaign.title}" }) { Text(if (campaign.active) "Desactivar" else "Activar") }
+                TextButton(onClick = onDelete) { Text("Eliminar", color = MaterialTheme.colorScheme.error) }
             }
         }
     }
 }
 
 @Composable
-private fun CampaignEditorDialog(initial: Campaign?, onDismiss: () -> Unit, onSave: (Campaign) -> Unit) {
+private fun CampaignEditorDialog(initial: Campaign?, errors: Map<String, String>, onDismiss: () -> Unit, onSave: (Campaign) -> Unit) {
     var title by remember(initial) { mutableStateOf(initial?.title.orEmpty()) }
     var description by remember(initial) { mutableStateOf(initial?.description.orEmpty()) }
     var startDate by remember(initial) { mutableStateOf(initial?.startDate.orEmpty()) }
     var endDate by remember(initial) { mutableStateOf(initial?.endDate.orEmpty()) }
     var active by remember(initial) { mutableStateOf(initial?.active ?: true) }
-    var errors by remember { mutableStateOf(emptyMap<String, String>()) }
     AlertDialog(onDismissRequest = onDismiss, title = { Text(if (initial == null) "Nueva campaña" else "Editar campaña") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(title, { title = it }, label = { Text("Título") }, singleLine = true, isError = errors.containsKey("title"), supportingText = { errors["title"]?.let { Text(it) } })
+                OutlinedTextField(title, { title = it }, label = { Text("Título") }, singleLine = true, isError = errors.containsKey("title"),
+                    trailingIcon = { if (errors.containsKey("title")) Icon(Icons.Default.Error, contentDescription = "Error", tint = MaterialTheme.colorScheme.error) },
+                    supportingText = { errors["title"]?.let { Text(it) } })
                 OutlinedTextField(description, { description = it }, label = { Text("Descripción") })
                 DatePickerField(startDate, { startDate = it }, "Fecha de inicio", error = errors["startDate"])
                 DatePickerField(endDate, { endDate = it }, "Fecha de término", error = errors["endDate"])
@@ -109,8 +134,6 @@ private fun CampaignEditorDialog(initial: Campaign?, onDismiss: () -> Unit, onSa
                 }
             }
         }, confirmButton = { Button(onClick = {
-            val campaign = Campaign(id = initial?.id ?: 0, title = title.trim(), description = description.trim(), startDate = startDate.trim(), endDate = endDate.trim(), active = active)
-            errors = CampaignValidator.validate(campaign)
-            if (errors.isEmpty()) onSave(campaign)
+            onSave(Campaign(id = initial?.id ?: 0, title = title.trim(), description = description.trim(), startDate = startDate.trim(), endDate = endDate.trim(), active = active))
         }) { Text("Guardar") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } })
 }

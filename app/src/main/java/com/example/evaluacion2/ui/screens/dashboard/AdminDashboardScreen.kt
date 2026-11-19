@@ -32,7 +32,7 @@ fun AdminDashboardScreen(
     onProfileClick: () -> Unit,
     onNotificationsClick: () -> Unit
 ) {
-    Scaffold(bottomBar = { AdminBottomBar(Routes.DASHBOARD_ADMIN, onHome = {}, onProducts = onProductsClick, onCampaigns = onCampaignsClick, onRequests = onRequestsClick, onProfile = onProfileClick) }) { padding ->
+    Scaffold(bottomBar = { AdminBottomBar(Routes.DASHBOARD_ADMIN) }) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -43,7 +43,7 @@ fun AdminDashboardScreen(
                 Text("Panel principal", style = MaterialTheme.typography.labelLarge)
                 IconButton(onClick = onNotificationsClick) { Icon(Icons.Default.Notifications, contentDescription = "Notificaciones") }
             }
-            AdminActionCard("Gestionar productos", "Crear y administrar el catálogo local", onProductsClick)
+            AdminActionCard("Gestionar productos", "Crear y administrar el catálogo", onProductsClick)
             AdminActionCard("Campañas y colecciones", "Administrar contenido promocional", onCampaignsClick)
             AdminActionCard("Solicitudes", "Revisar solicitudes de cotización", onRequestsClick)
             AdminActionCard("Perfil", "Ver datos y configuración", onProfileClick)

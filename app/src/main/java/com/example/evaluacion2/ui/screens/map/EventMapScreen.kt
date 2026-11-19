@@ -158,7 +158,7 @@ fun EventMapScreen(
             )
         },
         bottomBar = {
-            ClientBottomBar(currentRoute ?: Routes.MAP, onHome, onCatalog, onMap, onRequests, onProfile)
+            ClientBottomBar(currentRoute ?: Routes.MAP)
         }
     ) { padding ->
         Box(

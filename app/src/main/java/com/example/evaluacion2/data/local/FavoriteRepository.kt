@@ -1,8 +1,7 @@
-package com.example.evaluacion2.data.repository
+package com.example.evaluacion2.data.local
 
 import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
-import com.example.evaluacion2.data.local.AppDatabaseHelper
 import com.example.evaluacion2.domain.model.Favorite
 
 class FavoriteRepository(private val databaseHelper: AppDatabaseHelper) {

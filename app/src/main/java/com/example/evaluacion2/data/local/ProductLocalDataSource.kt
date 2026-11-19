@@ -1,42 +1,51 @@
-package com.example.evaluacion2.data.repository
+package com.example.evaluacion2.data.local
 
 import android.content.ContentValues
 import android.database.Cursor
-import com.example.evaluacion2.data.local.AppDatabaseHelper
+import android.database.sqlite.SQLiteDatabase
 import com.example.evaluacion2.domain.model.Product
 
-class ProductRepository(private val databaseHelper: AppDatabaseHelper) {
-    fun updateAvailable(productId: Int, available: Boolean): Boolean {
-        val values = ContentValues().apply { put(AppDatabaseHelper.COLUMN_AVAILABLE, if (available) 1 else 0) }
-        return databaseHelper.writableDatabase.update(AppDatabaseHelper.TABLE_PRODUCTS, values, "${AppDatabaseHelper.COLUMN_ID} = ?", arrayOf(productId.toString())) > 0
-    }
+class ProductLocalDataSource(private val databaseHelper: AppDatabaseHelper) : ProductCache {
 
-    fun getHomeFavoriteProducts(userId: Int): List<Product> = databaseHelper.readableDatabase.rawQuery(
-        "SELECT p.* FROM ${AppDatabaseHelper.TABLE_PRODUCTS} p " +
-            "INNER JOIN ${AppDatabaseHelper.TABLE_HOME_FAVORITES} f " +
-            "ON p.${AppDatabaseHelper.COLUMN_ID} = f.${AppDatabaseHelper.COLUMN_PRODUCT_ID} " +
-            "WHERE f.${AppDatabaseHelper.COLUMN_USER_ID} = ? ORDER BY f.${AppDatabaseHelper.COLUMN_ID} DESC",
-        arrayOf(userId.toString())
-    ).use { cursor -> buildList { while (cursor.moveToNext()) add(cursor.toProduct()) } }
-
-    fun getProducts(): List<Product> = databaseHelper.readableDatabase.query(
+    override fun getAll(): List<Product> = databaseHelper.readableDatabase.query(
         AppDatabaseHelper.TABLE_PRODUCTS, null, null, null, null, null,
         "${AppDatabaseHelper.COLUMN_NAME} COLLATE NOCASE ASC"
     ).use { cursor -> buildList { while (cursor.moveToNext()) add(cursor.toProduct()) } }
 
-    fun findById(productId: Int): Product? = databaseHelper.readableDatabase.query(
+    override fun findById(productId: Int): Product? = databaseHelper.readableDatabase.query(
         AppDatabaseHelper.TABLE_PRODUCTS, null,
         "${AppDatabaseHelper.COLUMN_ID} = ?", arrayOf(productId.toString()), null, null, null
     ).use { cursor -> if (cursor.moveToFirst()) cursor.toProduct() else null }
 
-    fun delete(productId: Int): Int = databaseHelper.writableDatabase.delete(
-        AppDatabaseHelper.TABLE_PRODUCTS,
-        "${AppDatabaseHelper.COLUMN_ID} = ?",
-        arrayOf(productId.toString())
-    )
+    /** Sincroniza la caché con la lista del servidor: actualiza/inserta y elimina lo que ya no existe. */
+    override fun upsertAll(products: List<Product>) {
+        val db = databaseHelper.writableDatabase
+        db.beginTransaction()
+        try {
+            products.forEach { upsert(db, it) }
+            val ids = products.map { it.id }
+            if (ids.isNotEmpty()) {
+                db.delete(
+                    AppDatabaseHelper.TABLE_PRODUCTS,
+                    "${AppDatabaseHelper.COLUMN_ID} NOT IN (${ids.joinToString { "?" }})",
+                    ids.map(Int::toString).toTypedArray()
+                )
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
 
-    fun save(product: Product): Long {
+    override fun upsert(product: Product) = upsert(databaseHelper.writableDatabase, product)
+
+    override fun delete(productId: Int) {
+        databaseHelper.writableDatabase.delete(AppDatabaseHelper.TABLE_PRODUCTS, "${AppDatabaseHelper.COLUMN_ID} = ?", arrayOf(productId.toString()))
+    }
+
+    private fun upsert(db: SQLiteDatabase, product: Product) {
         val values = ContentValues().apply {
+            put(AppDatabaseHelper.COLUMN_ID, product.id)
             put(AppDatabaseHelper.COLUMN_NAME, product.name)
             put(AppDatabaseHelper.COLUMN_DESCRIPTION, product.description)
             put(AppDatabaseHelper.COLUMN_DIMENSIONS, product.dimensions)
@@ -47,9 +56,8 @@ class ProductRepository(private val databaseHelper: AppDatabaseHelper) {
             put(AppDatabaseHelper.COLUMN_IMAGE_URI, product.imageUri)
             put(AppDatabaseHelper.COLUMN_COLLECTION, product.collection)
         }
-        val db = databaseHelper.writableDatabase
-        return if (product.id == 0) db.insertOrThrow(AppDatabaseHelper.TABLE_PRODUCTS, null, values)
-        else db.update(AppDatabaseHelper.TABLE_PRODUCTS, values, "${AppDatabaseHelper.COLUMN_ID} = ?", arrayOf(product.id.toString())).toLong().takeIf { it > 0 } ?: -1L
+        val updated = db.update(AppDatabaseHelper.TABLE_PRODUCTS, values, "${AppDatabaseHelper.COLUMN_ID} = ?", arrayOf(product.id.toString()))
+        if (updated == 0) db.insertWithOnConflict(AppDatabaseHelper.TABLE_PRODUCTS, null, values, SQLiteDatabase.CONFLICT_IGNORE)
     }
 
     private fun Cursor.toProduct() = Product(

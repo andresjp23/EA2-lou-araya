@@ -5,7 +5,6 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import androidx.core.database.sqlite.transaction
-import com.example.evaluacion2.domain.model.User
 
 class AppDatabaseHelper(context: Context) :
     SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
@@ -17,15 +16,11 @@ class AppDatabaseHelper(context: Context) :
             createProductsTable(db)
             createFavoritesTable(db)
             createHomeFavoritesTable(db)
-            createRequestsTable(db)
             createQrScansTable(db)
             createEventsTable(db)
-            createCampaignsTable(db)
             createPreferencesTable(db)
             createNotificationInboxTable(db)
             seedLocalEventsIfEmpty(db)
-            insertAdminIfMissing(db)
-            seedCampaignsIfEmpty(db)
             seedProductsIfEmpty(db)
         }
     }
@@ -36,53 +31,23 @@ class AppDatabaseHelper(context: Context) :
             if (oldVersion < 2) {
                 createProductsTable(db)
                 createFavoritesTable(db)
-                createRequestsTable(db)
                 createQrScansTable(db)
                 createEventsTable(db)
-                createCampaignsTable(db)
                 createPreferencesTable(db)
             }
             if (oldVersion < 3) db.execSQL("ALTER TABLE $TABLE_USERS ADD COLUMN $COLUMN_AVATAR_URI TEXT")
             if (oldVersion < 4) createQrScansTable(db)
-            if (oldVersion < 5) insertAdminIfMissing(db)
             if (oldVersion < 6) createHomeFavoritesTable(db)
             if (oldVersion < 7) {
                 createNotificationInboxTable(db)
                 seedLocalEventsIfEmpty(db)
             }
             if (oldVersion < 8) {
-                seedCampaignsIfEmpty(db)
                 seedProductsIfEmpty(db)
             }
             if (oldVersion < 9) migrateBundledCatalogImages(db)
+            if (oldVersion < 10) migrateToMicroservices(db)
         }
-    }
-
-    private fun insertAdminIfMissing(db: SQLiteDatabase) {
-        val values = ContentValues().apply {
-            put(COLUMN_NAME, "Administrador")
-            put(COLUMN_ALIAS, "admin")
-            put(COLUMN_EMAIL, "admin@louaraya.cl")
-            put(COLUMN_PHONE, "0000000000")
-            put(COLUMN_PASSWORD, "Admin123")
-            put(COLUMN_ROLE, User.ROLE_ADMIN)
-        }
-        val adminId = db.insertWithOnConflict(TABLE_USERS, null, values, SQLiteDatabase.CONFLICT_IGNORE)
-        val resolvedAdminId = if (adminId != -1L) adminId else {
-            db.rawQuery(
-                "SELECT $COLUMN_ID FROM $TABLE_USERS WHERE $COLUMN_EMAIL = ? COLLATE NOCASE",
-                arrayOf("admin@louaraya.cl")
-            ).use { cursor -> if (cursor.moveToFirst()) cursor.getLong(0) else return }
-        }
-        db.insertWithOnConflict(
-            TABLE_PREFERENCES,
-            null,
-            ContentValues().apply {
-                put(COLUMN_USER_ID, resolvedAdminId)
-                put(COLUMN_NOTIFICATIONS_ENABLED, 1)
-            },
-            SQLiteDatabase.CONFLICT_IGNORE
-        )
     }
 
     private fun createUsersTable(db: SQLiteDatabase) {
@@ -144,27 +109,6 @@ class AppDatabaseHelper(context: Context) :
         """.trimIndent())
     }
 
-    private fun createRequestsTable(db: SQLiteDatabase) {
-        db.execSQL("""
-            CREATE TABLE IF NOT EXISTS $TABLE_REQUESTS (
-                $COLUMN_ID INTEGER PRIMARY KEY AUTOINCREMENT,
-                $COLUMN_USER_ID INTEGER NOT NULL,
-                $COLUMN_PRODUCT_ID INTEGER,
-                $COLUMN_EVENT_TYPE TEXT NOT NULL DEFAULT '',
-                $COLUMN_DIMENSIONS TEXT NOT NULL DEFAULT '',
-                $COLUMN_MATERIAL TEXT NOT NULL DEFAULT '',
-                $COLUMN_COLORS TEXT NOT NULL DEFAULT '',
-                $COLUMN_REQUIRED_DATE TEXT NOT NULL DEFAULT '',
-                $COLUMN_OBSERVATIONS TEXT NOT NULL DEFAULT '',
-                $COLUMN_STATUS TEXT NOT NULL DEFAULT 'PENDIENTE',
-                $COLUMN_CREATED_AT TEXT NOT NULL,
-                FOREIGN KEY($COLUMN_USER_ID) REFERENCES $TABLE_USERS($COLUMN_ID) ON DELETE CASCADE,
-                FOREIGN KEY($COLUMN_PRODUCT_ID) REFERENCES $TABLE_PRODUCTS($COLUMN_ID) ON DELETE SET NULL
-            )
-        """.trimIndent())
-        db.execSQL("CREATE INDEX IF NOT EXISTS index_requests_user_id ON $TABLE_REQUESTS($COLUMN_USER_ID)")
-    }
-
     private fun createQrScansTable(db: SQLiteDatabase) {
         db.execSQL("""
             CREATE TABLE IF NOT EXISTS $TABLE_QR_SCANS (
@@ -188,19 +132,6 @@ class AppDatabaseHelper(context: Context) :
                 $COLUMN_LATITUDE REAL NOT NULL DEFAULT 0,
                 $COLUMN_LONGITUDE REAL NOT NULL DEFAULT 0,
                 $COLUMN_DATE TEXT NOT NULL
-            )
-        """.trimIndent())
-    }
-
-    private fun createCampaignsTable(db: SQLiteDatabase) {
-        db.execSQL("""
-            CREATE TABLE IF NOT EXISTS $TABLE_CAMPAIGNS (
-                $COLUMN_ID INTEGER PRIMARY KEY AUTOINCREMENT,
-                $COLUMN_TITLE TEXT NOT NULL,
-                $COLUMN_DESCRIPTION TEXT NOT NULL DEFAULT '',
-                $COLUMN_START_DATE TEXT NOT NULL,
-                $COLUMN_END_DATE TEXT NOT NULL,
-                $COLUMN_ACTIVE INTEGER NOT NULL DEFAULT 1
             )
         """.trimIndent())
     }
@@ -285,26 +216,23 @@ class AppDatabaseHelper(context: Context) :
         ProductSeed("Tapiz mural Sol Andino", "Tapiz inspirado en el sol y los paisajes de la cordillera.", "110 x 90 cm", "Algodón natural y madera", "Interiores", 78000, "Hogares con Alma", "drawable:tapiz_mural_sol_andino")
     )
 
-    private fun seedCampaignsIfEmpty(db: SQLiteDatabase) {
-        val hasCampaigns = db.rawQuery("SELECT COUNT(*) FROM $TABLE_CAMPAIGNS", null).use { it.moveToFirst() && it.getInt(0) > 0 }
-        if (hasCampaigns) return
-        listOf(
-            arrayOf("Bodas de Ensueño", "Diseños para un día inolvidable", "2025-01-01", "2025-12-31", "1"),
-            arrayOf("Festivales Libres", "Arte textil para grandes encuentros", "2025-01-01", "2025-12-31", "1"),
-            arrayOf("Hogares con Alma", "Decora tus espacios", "2026-01-01", "2026-12-31", "1"),
-            arrayOf("Viajes que Inspiran", "Piezas livianas y únicas", "2024-01-01", "2024-12-31", "0")
-        ).forEach { sample -> db.insert(TABLE_CAMPAIGNS, null, ContentValues().apply {
-            put(COLUMN_TITLE, sample[0]); put(COLUMN_DESCRIPTION, sample[1]); put(COLUMN_START_DATE, sample[2]); put(COLUMN_END_DATE, sample[3]); put(COLUMN_ACTIVE, sample[4].toInt())
-        }) }
+    /**
+     * Versión 10: usuarios, campañas y solicitudes pasan a los microservicios.
+     * Se eliminan las tablas locales que ya no se usan y se borran las contraseñas guardadas.
+     */
+    private fun migrateToMicroservices(db: SQLiteDatabase) {
+        db.execSQL("DROP TABLE IF EXISTS requests")
+        db.execSQL("DROP TABLE IF EXISTS campaigns")
+        db.execSQL("UPDATE $TABLE_USERS SET $COLUMN_PASSWORD = ''")
     }
 
     private fun seedLocalEventsIfEmpty(db: SQLiteDatabase) {
         val hasEvents = db.rawQuery("SELECT COUNT(*) FROM $TABLE_EVENTS", null).use { it.moveToFirst() && it.getInt(0) > 0 }
         if (hasEvents) return
         val samples = listOf(
-            arrayOf("Feria Pueblo Artesanal", "Feria", "Parque Bicentenario, Vitacura", "-33.4006", "-70.5996", "12–14 Abr 2025"),
-            arrayOf("Showroom Las Condes", "Showroom", "Av. Apoquindo, Las Condes", "-33.4140", "-70.5860", "26 Abr 2025"),
-            arrayOf("Encuentro de Diseño Ñuñoa", "Eventos", "Plaza Ñuñoa", "-33.4540", "-70.5970", "10 May 2025")
+            arrayOf("Feria Pueblo Artesanal", "Feria", "Parque Bicentenario, Vitacura", "-33.4006", "-70.5996", "12–14 Dic 2026"),
+            arrayOf("Showroom Las Condes", "Showroom", "Av. Apoquindo, Las Condes", "-33.4140", "-70.5860", "19 Dic 2026"),
+            arrayOf("Encuentro de Diseño Ñuñoa", "Eventos", "Plaza Ñuñoa", "-33.4540", "-70.5970", "9 Ene 2027")
         )
         samples.forEach { sample ->
             db.insert(TABLE_EVENTS, null, ContentValues().apply {
@@ -326,16 +254,14 @@ class AppDatabaseHelper(context: Context) :
 
     companion object {
         private const val DATABASE_NAME = "lou_araya.db"
-        private const val DATABASE_VERSION = 9
+        private const val DATABASE_VERSION = 10
 
         const val TABLE_USERS = "users"
         const val TABLE_PRODUCTS = "products"
         const val TABLE_FAVORITES = "favorites"
         const val TABLE_HOME_FAVORITES = "home_favorites"
-        const val TABLE_REQUESTS = "requests"
         const val TABLE_QR_SCANS = "qr_scans"
         const val TABLE_EVENTS = "events"
-        const val TABLE_CAMPAIGNS = "campaigns"
         const val TABLE_PREFERENCES = "preferences"
         const val TABLE_NOTIFICATIONS = "notifications"
 

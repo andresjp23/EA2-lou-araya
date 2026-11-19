@@ -1,7 +1,6 @@
-package com.example.evaluacion2.data.repository
+package com.example.evaluacion2.data.local
 
 import android.content.ContentValues
-import com.example.evaluacion2.data.local.AppDatabaseHelper
 
 data class LocalNotification(val id: Int, val category: String, val title: String, val description: String, val createdAt: String, val read: Boolean)
 

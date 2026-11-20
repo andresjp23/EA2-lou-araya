@@ -3,7 +3,7 @@
 Aplicación Android (Kotlin + Jetpack Compose + Material 3) para **Lou Araya Macramé**, un emprendimiento de piezas de macramé artesanal para matrimonios, festivales e interiores. Los clientes revisan el catálogo, guardan favoritos, encuentran ferias en el mapa, escanean el QR de un producto en una feria y piden cotizaciones a medida. La administradora gestiona el catálogo, las campañas y las solicitudes.
 
 > Asignatura DSY1105 — Desarrollo de Aplicaciones Móviles · Duoc UC
-> Backend (microservicios Spring Boot): repositorio **lou-araya-backend** → _agregar aquí el link de GitHub_
+> Backend (microservicios Spring Boot): repositorio **lou-araya-backend** → https://github.com/andresjp23/lou-araya-backend
 
 ## Integrantes
 
@@ -144,5 +144,4 @@ Signer #1 certificate SHA-256 digest: 2e8a006cdb3a48c6b3995e053a8bf2d264497b4c39
 
 ## Trabajo colaborativo
 
-- Planificación en Trello: _agregar link al tablero_.
 - Commits por integrante: ver `git shortlog -sn` o la pestaña *Contributors* del repositorio.
